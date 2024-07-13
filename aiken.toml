@@ -1,0 +1,16 @@
+name = "easy1staking/cardano-recurring-payment"
+version = "0.0.0"
+compiler = "v1.0.29-alpha"
+plutus = "v2"
+license = "Apache-2.0"
+description = "Aiken contracts for project 'easy1staking/cardano-recurring-payment'"
+
+[repository]
+user = "easy1staking"
+project = "cardano-recurring-payment"
+platform = "github"
+
+[[dependencies]]
+name = "aiken-lang/stdlib"
+version = "1.9.0"
+source = "github"

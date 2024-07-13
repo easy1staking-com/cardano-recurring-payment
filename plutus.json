@@ -1,0 +1,144 @@
+{
+  "preamble": {
+    "title": "easy1staking/cardano-recurring-payment",
+    "description": "Aiken contracts for project 'easy1staking/cardano-recurring-payment'",
+    "version": "0.0.0",
+    "plutusVersion": "v2",
+    "compiler": {
+      "name": "Aiken",
+      "version": "v1.0.29-alpha+16fb02e"
+    },
+    "license": "Apache-2.0"
+  },
+  "validators": [
+    {
+      "title": "hello_world.automatic_payments",
+      "datum": {
+        "title": "datum",
+        "schema": {
+          "$ref": "#/definitions/hello_world~1Datum"
+        }
+      },
+      "redeemer": {
+        "title": "redeemer",
+        "schema": {
+          "$ref": "#/definitions/hello_world~1Redeemer"
+        }
+      },
+      "compiledCode": "5904e201000032323232323232232323223225333008323232533300b3009300c375400c264a66601866e3cdd7180898071baa007375c6004601c6ea802c4004528198011bac3003300d37546002601a6ea8010dd7180098069baa00a132533300c3300337586008601c6ea8c008c038dd50029bae301130123012301230123012300e375401620022940cc8c8c88cdd7991918011980a999119299980a180900088010a99980a180880088018801980a1baa33007002001300730133754002600e60266ea800ccc054cc88c94ccc050c048004400c54ccc050c044004400c4008c050dd519803801000980318099baa00130063013375400697ae03001330143001330143374a90011980a180198091baa00f4bd701980a1998082514c103d87a80004c0103d87980004bd701980a192999808980798091baa00113002330153374a90011980a9ba8337006eb4c010c04cdd500819b82337046eb4c058c04cdd5000a40f0903c25eb80cc054ccc04528a6103d87a80004c0103d87980004bd700a6010ad8799fd87b80d87980ff00301530163016301630163012375401e97ae0374a900000091809980a180a180a000911919299980818070008a60103d879800015333010300200114c0103d87b8000153330105333010325333014301300115333011300e301200114a22a666022601e602400229405858dd5180298091baa0041325333014301300115333011300e301200114a22a666022601e602400229405858dd5180298091baa0031333010325333014301300115333011300e301200114a22a666022601e602400229405858dd5180298091baa0034a09445300103d87a800015333010325333014301300115333011300e301200114a22a666022601e602400229405858dd5180298091baa00414c103d87b800014c103d879800030103754664464a66602460200022a666024602060266ea80085300103d87a800014c103d879800015333012300400115333012300430133754004298103d87a800014c103d87b8000132325333014301200114c0103d87b800015333014300600114c0103d87980001325333015337100060022980103d8798000153330153370e0060022980103d87a800014c103d87b8000375a6032602c6ea8010c050dd50019bad30173014375400660246ea8008c014c044dd5001980298089baa002370e90021180898090009808180898089808980898089808980898069baa3001300d37540084602000244646600200200644a66602000229404c94ccc038cdc79bae301300200414a226600600600260260024601c601e601e601e601e601e601e601e601e00229309b2b192999803980280089919299980618078010a4c2c6eb8c034004c024dd50010a99980398020008a99980518049baa00214985858c01cdd5000a999802180118029baa00313232323232323232323232325333013301600213232498c94ccc048c0400044c8c94ccc05cc06800852616375a603000260286ea801454ccc048c03c00454ccc054c050dd50028a4c2c2c60246ea8010c94ccc044c03c0044c8c94ccc058c06400852616375c602e00260266ea802054ccc044c03800454ccc050c04cdd50040a4c2c2c60226ea801c58dd7180a000980a001180900098090011bad30100013010002300e001300e002375c601800260180046eb8c028004c018dd50018b1b8748008dc3a4000ae6955ceaab9e5573eae815d0aba201",
+      "hash": "bca256427f3ff30a95bae30bbbd0028aafe9b0965fcc462472954a9b"
+    }
+  ],
+  "definitions": {
+    "ByteArray": {
+      "dataType": "bytes"
+    },
+    "Int": {
+      "dataType": "integer"
+    },
+    "Option$ByteArray": {
+      "title": "Optional",
+      "anyOf": [
+        {
+          "title": "Some",
+          "description": "An optional value.",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": [
+            {
+              "$ref": "#/definitions/ByteArray"
+            }
+          ]
+        },
+        {
+          "title": "None",
+          "description": "Nothing.",
+          "dataType": "constructor",
+          "index": 1,
+          "fields": []
+        }
+      ]
+    },
+    "Option$Int": {
+      "title": "Optional",
+      "anyOf": [
+        {
+          "title": "Some",
+          "description": "An optional value.",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": [
+            {
+              "$ref": "#/definitions/Int"
+            }
+          ]
+        },
+        {
+          "title": "None",
+          "description": "Nothing.",
+          "dataType": "constructor",
+          "index": 1,
+          "fields": []
+        }
+      ]
+    },
+    "hello_world/Datum": {
+      "title": "Datum",
+      "anyOf": [
+        {
+          "title": "Datum",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": [
+            {
+              "title": "owner_payment_pkh",
+              "$ref": "#/definitions/ByteArray"
+            },
+            {
+              "title": "destination_payment_pkh",
+              "$ref": "#/definitions/ByteArray"
+            },
+            {
+              "title": "destination_staking_pkh_opt",
+              "$ref": "#/definitions/Option$ByteArray"
+            },
+            {
+              "title": "start_time",
+              "$ref": "#/definitions/Int"
+            },
+            {
+              "title": "max_payment_delay_hours",
+              "$ref": "#/definitions/Option$Int"
+            },
+            {
+              "title": "bot_payment_pkh",
+              "$ref": "#/definitions/ByteArray"
+            }
+          ]
+        }
+      ]
+    },
+    "hello_world/Redeemer": {
+      "title": "Redeemer",
+      "anyOf": [
+        {
+          "title": "Withdraw",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": [
+            {
+              "title": "owner_payment_pkh",
+              "$ref": "#/definitions/ByteArray"
+            }
+          ]
+        },
+        {
+          "title": "Spend",
+          "dataType": "constructor",
+          "index": 1,
+          "fields": []
+        }
+      ]
+    }
+  }
+}
