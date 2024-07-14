@@ -76,7 +76,7 @@ fn is_paymet_time_valid(self: Datum, validity_range: ValidityRange) -> Bool {
   intersection(valid_transaction_range, validity_range) == validity_range
 }
 
-fn is_paymet_time_valid_v2(self: Datum, validity_range: ValidityRange) -> Bool {
+fn is_payment_time_valid_v2(self: Datum, validity_range: ValidityRange) -> Bool {
   let is_start_time_valid =
     when validity_range.lower_bound.bound_type is {
       Finite(tx_earliest_time) -> self.start_time <= tx_earliest_time
@@ -128,7 +128,7 @@ validator {
   }
 }
 
-test is_paymet_time_valid_succeed() {
+test is_payment_time_valid_succeed() {
   let datum = Datum(#"", #"", None, 5, None, #"")
-  is_paymet_time_valid_v2(datum, after(6))
+  is_payment_time_valid_v2(datum, after(6))
 }
