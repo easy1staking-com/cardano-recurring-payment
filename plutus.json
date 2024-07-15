@@ -12,21 +12,21 @@
   },
   "validators": [
     {
-      "title": "hello_world.automatic_payments",
+      "title": "automatic_payments.automatic_payments",
       "datum": {
         "title": "datum",
         "schema": {
-          "$ref": "#/definitions/hello_world~1Datum"
+          "$ref": "#/definitions/automatic_payments~1Datum"
         }
       },
       "redeemer": {
         "title": "redeemer",
         "schema": {
-          "$ref": "#/definitions/hello_world~1Redeemer"
+          "$ref": "#/definitions/automatic_payments~1Redeemer"
         }
       },
-      "compiledCode": "5904e201000032323232323232232323223225333008323232533300b3009300c375400c264a66601866e3cdd7180898071baa007375c6004601c6ea802c4004528198011bac3003300d37546002601a6ea8010dd7180098069baa00a132533300c3300337586008601c6ea8c008c038dd50029bae301130123012301230123012300e375401620022940cc8c8c88cdd7991918011980a999119299980a180900088010a99980a180880088018801980a1baa33007002001300730133754002600e60266ea800ccc054cc88c94ccc050c048004400c54ccc050c044004400c4008c050dd519803801000980318099baa00130063013375400697ae03001330143001330143374a90011980a180198091baa00f4bd701980a1998082514c103d87a80004c0103d87980004bd701980a192999808980798091baa00113002330153374a90011980a9ba8337006eb4c010c04cdd500819b82337046eb4c058c04cdd5000a40f0903c25eb80cc054ccc04528a6103d87a80004c0103d87980004bd700a6010ad8799fd87b80d87980ff00301530163016301630163012375401e97ae0374a900000091809980a180a180a000911919299980818070008a60103d879800015333010300200114c0103d87b8000153330105333010325333014301300115333011300e301200114a22a666022601e602400229405858dd5180298091baa0041325333014301300115333011300e301200114a22a666022601e602400229405858dd5180298091baa0031333010325333014301300115333011300e301200114a22a666022601e602400229405858dd5180298091baa0034a09445300103d87a800015333010325333014301300115333011300e301200114a22a666022601e602400229405858dd5180298091baa00414c103d87b800014c103d879800030103754664464a66602460200022a666024602060266ea80085300103d87a800014c103d879800015333012300400115333012300430133754004298103d87a800014c103d87b8000132325333014301200114c0103d87b800015333014300600114c0103d87980001325333015337100060022980103d8798000153330153370e0060022980103d87a800014c103d87b8000375a6032602c6ea8010c050dd50019bad30173014375400660246ea8008c014c044dd5001980298089baa002370e90021180898090009808180898089808980898089808980898069baa3001300d37540084602000244646600200200644a66602000229404c94ccc038cdc79bae301300200414a226600600600260260024601c601e601e601e601e601e601e601e601e00229309b2b192999803980280089919299980618078010a4c2c6eb8c034004c024dd50010a99980398020008a99980518049baa00214985858c01cdd5000a999802180118029baa00313232323232323232323232325333013301600213232498c94ccc048c0400044c8c94ccc05cc06800852616375a603000260286ea801454ccc048c03c00454ccc054c050dd50028a4c2c2c60246ea8010c94ccc044c03c0044c8c94ccc058c06400852616375c602e00260266ea802054ccc044c03800454ccc050c04cdd50040a4c2c2c60226ea801c58dd7180a000980a001180900098090011bad30100013010002300e001300e002375c601800260180046eb8c028004c018dd50018b1b8748008dc3a4000ae6955ceaab9e5573eae815d0aba201",
-      "hash": "bca256427f3ff30a95bae30bbbd0028aafe9b0965fcc462472954a9b"
+      "compiledCode": "590abd0100003232323232323223232323232322322533300b323232533300e300c300f375400c264a66601e66e3cdd7180a18089baa007375c600860226ea80384004528198009bac300230103754600660206ea8010dd7180198081baa00d13232325333011300e301237540022646464a6660286024602a6ea80044c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c94ccc09cc090c0a0dd500089919192999816981800109919192999816981418171baa0011323232533303000b153330300131533303000615333030001100f14a029405280a503375e00800460500026064605e6ea800458c058c0b8dd500199180d19818181098171baa02b330303015302e375405666060602c605c6ea80accc0c0c028c0b8dd5015998181ba833223253232333031302f0031300230013011481e054ccc0c4c0b800c4c008c004c044c044dd6981b18199baa0041532333032302d00413003300230123001481e054ccc0c8cdc3a400c0082600660046024602460026eb4c0dcc0d0dd50028a99981919b87480200104c00cc008c048c048cdc12401c90180a99981919b87480280104c00cc008c048c048c004cdc11bad30373034375400a90070980198011809180919b8248368152030370490181b82483403cdc000198179baa001375a601c605c6ea80acc004c0b8dd501599818180098171baa02b33030300d302e3754056660606020605c6ea80ad2f5c0460626064606460646064606400266ebcc04cc0b0dd50009ba6330063756602660586ea8c04cc0b0dd500b1919800800998039bab3009302d375403802044a66605e002297adef6c601323303133760605c0026e98c8cc004004dd598180011129998190008a5eb7bdb1804c8cc0d0cdd818188009ba83370290001bad30320013300300330360023034001330030033033002303100116302e00133005013232533302a3027302b3754002266e3c00cdd7181798161baa00114a0603c60566ea8c078c0acdd50009bae302c302937540022c603660506ea8c06cc0a0dd5180798141baa012323375e6e98c8ccc004004cc0100488cdd7980e98151baa0010034bd6f7b6301112999816001080089998018019817801198029bab3012302b3754605c0040026e9802cc04ccc0a4c03cc09cdd501219814980198139baa0244bd70111919980080080180111129998160010800899199802002181800199998088011bae302b0013756605800244464a66605c602c002298103d87a80001301c33032374c00297ae0323330010010030022225333033002100113233300400430370033333017002375c60640026eb4c0cc004888c94ccc0d4c0cc004530103d87a80001302333039375000297ae033700004002606a004605c00444646600200200644a666054002297ae0132325333029300500213302d00233004004001133004004001302e002302c0012302830293029302900132325333023325333024302130253754002266e24dd6980318131baa023375a6052604c6ea8004528180c18129baa30183025375400420022940c94ccc08cc080c090dd50008a51132325333025302230263754002266e24dd6981518139baa001337006eb4c01cc09cdd5012180298028010a50301930263754601a604c6ea800cdd6981418129baa001300330243754042600a60466ea8c058c08cdd500b9b82481e08c094c098c098c098c098c098c0980048c090c094c094c094c094004cc040dd61808980f9baa3012301f37540266eb8c004c07cdd500e118111811981198119811981198119811800991998008009bac3005301e375403697adef6c6022253330210021001133300300330240023233332322225333024302200110071333300b0070033232002300500133028337606ea4008dd4000a5eb7bdb180888c94ccc0a0c040004530103d87a8000130163302c374c00297ae0333300d00100500422232533302b302900114c0103d87a8000130193302f375000297ae033700002004600200244a66604800229309929998128008a4c26464a66604866e40dd7181298148021bae30250021330050053302800200116302900230270013027001375c60280026eb8c020004dd698048009bac302300222223233001001005225333023001133024337606ea4014dd400225eb7bdb1804c8c8c8c94ccc090cdc800480109981419bb037520126ea002001454ccc090cdc78048010992999812981198131baa001133029337606ea4028c0a8c09cdd5000802080219980380480400089981419bb037520046ea0004cc01801800cdd698128019bae30230023027002302500122223233001001005225333022001133023337606ea4014dd300225eb7bdb1804c8c8c8c94ccc08ccdc800480109981399bb037520126e9802001454ccc08ccdc78048010992999812181118129baa001133028337606ea4028c0a4c098dd5000802080219980380480400089981399bb037520046e98004cc01801800cdd598120019bae3022002302600230240012533301c00114a229408c074c0780048c070c074c074004dd6180d180d980d980b9baa0063019301637540022c64660020026eb0c024c058dd500291299980c0008a6103d87a80001323253330173375e00c601860326ea80084c014cc06c0092f5c0266008008002603800460340026e9520003016301337540022c602a602c004602800260206ea801088c8cc00400400c894ccc050004528099299980919b8f375c602e00400829444cc00c00c004c05c0048c048c04cc04cc04cc04cc04cc04cc04cc04c0048c0440045261365632533300a300800113232533300f3012002149858dd7180800098061baa0021533300a30070011533300d300c37540042930b0b18051baa001300100625333007300530083754002264646464646464646464646464646464a666034603a004264646464649319299980e180d00089919299981098120010a4c2c6eb4c088004c078dd50040a99980e180c8008a99980f980f1baa00814985858c070dd500399299980d980c8008a99980f180e9baa00914985854ccc06cc0600044c8c94ccc080c08c00852616375a6042002603a6ea802454ccc06cc05800454ccc078c074dd50048a4c2c2a66603666e1d20060011323253330203023002149858dd69810800980e9baa0091533301b3370e90040008a99980f180e9baa00914985854ccc06ccdc3a401400226464a66604060460042930b1bad3021001301d37540122a66603666e1d200c0011533301e301d37540122930b0b180d9baa00832533301a301800113232533301f3022002132498c94ccc074c06c0044c8c94ccc088c0940084c926301b001163023001301f37540042a66603a60340022646464646464a66604c60520042930b1bad30270013027002375a604a002604a0046eb4c08c004c07cdd50010b180e9baa001163020001301c37540182a666034602e0022a66603a60386ea80305261616301a37540166028018646600200201c44a666038002293099198018019810001191919191919299981118128010a4c2c6eb4c08c004c08c008dd7181080098108011bae301f0013758603c0022c6eb8c06c004c06c008c064004c064008c05c004c05c008dd6980a800980a80118098009809801180880098088011bac300f001300f002375c601a00260126ea800458dc3a4008464a66600c600800226464a666016601c0042930b1bae300c001300837540042a66600c600600226464a666016601c0042930b1bae300c001300837540042c600c6ea8004dc3a40046e1d20005734aae7555cf2ab9f5740ae855d101",
+      "hash": "fb2a16c323c9d9518bcd53d52b27abcf09a4322785a00c7b22e77f6e"
     }
   ],
   "definitions": {
@@ -36,28 +36,11 @@
     "Int": {
       "dataType": "integer"
     },
-    "Option$ByteArray": {
-      "title": "Optional",
-      "anyOf": [
-        {
-          "title": "Some",
-          "description": "An optional value.",
-          "dataType": "constructor",
-          "index": 0,
-          "fields": [
-            {
-              "$ref": "#/definitions/ByteArray"
-            }
-          ]
-        },
-        {
-          "title": "None",
-          "description": "Nothing.",
-          "dataType": "constructor",
-          "index": 1,
-          "fields": []
-        }
-      ]
+    "List$Tuple$ByteArray_ByteArray_Int": {
+      "dataType": "list",
+      "items": {
+        "$ref": "#/definitions/Tuple$ByteArray_ByteArray_Int"
+      }
     },
     "Option$Int": {
       "title": "Optional",
@@ -82,7 +65,106 @@
         }
       ]
     },
-    "hello_world/Datum": {
+    "Option$aiken/transaction/credential/Referenced$aiken/transaction/credential/Credential": {
+      "title": "Optional",
+      "anyOf": [
+        {
+          "title": "Some",
+          "description": "An optional value.",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": [
+            {
+              "$ref": "#/definitions/aiken~1transaction~1credential~1Referenced$aiken~1transaction~1credential~1Credential"
+            }
+          ]
+        },
+        {
+          "title": "None",
+          "description": "Nothing.",
+          "dataType": "constructor",
+          "index": 1,
+          "fields": []
+        }
+      ]
+    },
+    "Tuple$ByteArray_ByteArray_Int": {
+      "title": "Tuple",
+      "dataType": "list",
+      "items": [
+        {
+          "$ref": "#/definitions/ByteArray"
+        },
+        {
+          "$ref": "#/definitions/ByteArray"
+        },
+        {
+          "$ref": "#/definitions/Int"
+        }
+      ]
+    },
+    "aiken/transaction/credential/Credential": {
+      "title": "Credential",
+      "description": "A general structure for representing an on-chain `Credential`.\n\n Credentials are always one of two kinds: a direct public/private key\n pair, or a script (native or Plutus).",
+      "anyOf": [
+        {
+          "title": "VerificationKeyCredential",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": [
+            {
+              "$ref": "#/definitions/ByteArray"
+            }
+          ]
+        },
+        {
+          "title": "ScriptCredential",
+          "dataType": "constructor",
+          "index": 1,
+          "fields": [
+            {
+              "$ref": "#/definitions/ByteArray"
+            }
+          ]
+        }
+      ]
+    },
+    "aiken/transaction/credential/Referenced$aiken/transaction/credential/Credential": {
+      "title": "Referenced",
+      "description": "Represent a type of object that can be represented either inline (by hash)\n or via a reference (i.e. a pointer to an on-chain location).\n\n This is mainly use for capturing pointers to a stake credential\n registration certificate in the case of so-called pointer addresses.",
+      "anyOf": [
+        {
+          "title": "Inline",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": [
+            {
+              "$ref": "#/definitions/aiken~1transaction~1credential~1Credential"
+            }
+          ]
+        },
+        {
+          "title": "Pointer",
+          "dataType": "constructor",
+          "index": 1,
+          "fields": [
+            {
+              "title": "slot_number",
+              "$ref": "#/definitions/Int"
+            },
+            {
+              "title": "transaction_index",
+              "$ref": "#/definitions/Int"
+            },
+            {
+              "title": "certificate_index",
+              "$ref": "#/definitions/Int"
+            }
+          ]
+        }
+      ]
+    },
+    "automatic_payments/Datum": {
       "title": "Datum",
       "anyOf": [
         {
@@ -95,16 +177,24 @@
               "$ref": "#/definitions/ByteArray"
             },
             {
-              "title": "destination_payment_pkh",
-              "$ref": "#/definitions/ByteArray"
+              "title": "amount_to_send",
+              "$ref": "#/definitions/List$Tuple$ByteArray_ByteArray_Int"
             },
             {
-              "title": "destination_staking_pkh_opt",
-              "$ref": "#/definitions/Option$ByteArray"
+              "title": "payee_payment_credential",
+              "$ref": "#/definitions/aiken~1transaction~1credential~1Credential"
+            },
+            {
+              "title": "payee_stake_credential",
+              "$ref": "#/definitions/Option$aiken~1transaction~1credential~1Referenced$aiken~1transaction~1credential~1Credential"
             },
             {
               "title": "start_time",
               "$ref": "#/definitions/Int"
+            },
+            {
+              "title": "payment_frenquency",
+              "$ref": "#/definitions/automatic_payments~1PaymentFrenquency"
             },
             {
               "title": "max_payment_delay_hours",
@@ -118,7 +208,69 @@
         }
       ]
     },
-    "hello_world/Redeemer": {
+    "automatic_payments/PaymentFrenquency": {
+      "title": "PaymentFrenquency",
+      "anyOf": [
+        {
+          "title": "Hourly",
+          "dataType": "constructor",
+          "index": 0,
+          "fields": []
+        },
+        {
+          "title": "Hours",
+          "dataType": "constructor",
+          "index": 1,
+          "fields": [
+            {
+              "title": "hours",
+              "$ref": "#/definitions/Int"
+            }
+          ]
+        },
+        {
+          "title": "Daily",
+          "dataType": "constructor",
+          "index": 2,
+          "fields": []
+        },
+        {
+          "title": "Days",
+          "dataType": "constructor",
+          "index": 3,
+          "fields": [
+            {
+              "title": "days",
+              "$ref": "#/definitions/Int"
+            }
+          ]
+        },
+        {
+          "title": "Weekly",
+          "dataType": "constructor",
+          "index": 4,
+          "fields": []
+        },
+        {
+          "title": "Weeks",
+          "dataType": "constructor",
+          "index": 5,
+          "fields": [
+            {
+              "title": "weeks",
+              "$ref": "#/definitions/Int"
+            }
+          ]
+        },
+        {
+          "title": "Yearly",
+          "dataType": "constructor",
+          "index": 6,
+          "fields": []
+        }
+      ]
+    },
+    "automatic_payments/Redeemer": {
       "title": "Redeemer",
       "anyOf": [
         {
@@ -133,7 +285,7 @@
           ]
         },
         {
-          "title": "Spend",
+          "title": "ExecutePayment",
           "dataType": "constructor",
           "index": 1,
           "fields": []

@@ -1,39 +1,42 @@
 use aiken/hash.{Blake2b_224, Hash}
-use aiken/interval.{
-  Finite, Interval, IntervalBound, PositiveInfinity, after, intersection,
-}
+use aiken/interval.{Finite, Interval, IntervalBound, after}
 use aiken/list
 use aiken/time.{PosixTime}
-use aiken/transaction.{ScriptContext, ValidityRange}
-use aiken/transaction/credential.{VerificationKey}
+use aiken/transaction.{
+  InlineDatum, Output, ScriptContext, Spend, Transaction, ValidityRange,
+}
+use aiken/transaction/credential.{
+  Address, PaymentCredential, ScriptCredential, StakeCredential, VerificationKey,
+  VerificationKeyCredential,
+}
+use aiken/transaction/value.{AssetName, PolicyId, Value}
 
 // use aiken/transaction/value.{Value}
 
-// type PaymentFrenquency {
-//   Hourly
-//   Hours { hours: Int }
-//   Daily
-//   Days { days: Int }
-//   Weekly
-//   Weeks { weeks: Int }
-//   Monthly
-//   Months { months: Int }
-//   Yearly
-// }
+type PaymentFrenquency {
+  Hourly
+  Hours { hours: Int }
+  Daily
+  Days { days: Int }
+  Weekly
+  Weeks { weeks: Int }
+  Yearly
+}
 
 type Datum {
   // The funds owner 
   owner_payment_pkh: Hash<Blake2b_224, VerificationKey>,
   // Value to sent periodically
-  // amount_to_send: Value, // opaque type, to be replaced
+  amount_to_send: List<(PolicyId, AssetName, Int)>,
+  // opaque type, to be replaced
   // Destination address Payment pub key
-  destination_payment_pkh: Hash<Blake2b_224, VerificationKey>,
+  payee_payment_credential: PaymentCredential,
   // Destination address Staking pub key (optional)
-  destination_staking_pkh_opt: Option<Hash<Blake2b_224, VerificationKey>>,
+  payee_stake_credential: Option<StakeCredential>,
   // Starting Date Time. Namely time of the first payment should be made
   start_time: PosixTime,
   // How often to perform a payment
-  // payment_frenquency: PaymentFrenquency,
+  payment_frenquency: PaymentFrenquency,
   // Maximum delay to perform payment within a period. Expressed in hours.
   max_payment_delay_hours: Option<Int>,
   // BOT Payment PKH
@@ -42,7 +45,7 @@ type Datum {
 
 type Redeemer {
   Withdraw { owner_payment_pkh: Hash<Blake2b_224, VerificationKey> }
-  Spend
+  ExecutePayment
 }
 
 // fn isBotAllowed(self: Datum, )
@@ -53,30 +56,8 @@ type Redeemer {
 // Example2: tx can be sent anytime after datum.start_time, but before datum.max_payment_delay_hours
 // have not passed after datum.start_time.
 // In case of missing the payment slot, the bot is de facto stuck.
-fn is_paymet_time_valid(self: Datum, validity_range: ValidityRange) -> Bool {
-  let upper_bound =
-    when self.max_payment_delay_hours is {
-      Some(max_delay_hours) ->
-        IntervalBound {
-          bound_type: Finite(self.start_time + max_delay_hours * 60 * 60),
-          is_inclusive: True,
-        }
-      None ->
-        IntervalBound { bound_type: PositiveInfinity, is_inclusive: False }
-    }
-  let valid_transaction_range =
-    Interval {
-      lower_bound: IntervalBound {
-        bound_type: Finite(self.start_time),
-        is_inclusive: True,
-      },
-      upper_bound,
-    }
-
-  intersection(valid_transaction_range, validity_range) == validity_range
-}
-
 fn is_payment_time_valid_v2(self: Datum, validity_range: ValidityRange) -> Bool {
+  trace @"is_payment_time_valid_v2"
   let is_start_time_valid =
     when validity_range.lower_bound.bound_type is {
       Finite(tx_earliest_time) -> self.start_time <= tx_earliest_time
@@ -96,6 +77,38 @@ fn is_payment_time_valid_v2(self: Datum, validity_range: ValidityRange) -> Bool 
   is_start_time_valid && is_end_time_valid
 }
 
+// Right amonut is sent to payee
+fn is_right_amount_sent_to_payee(
+  payee_address: Address,
+  outputs: List<Output>,
+  value_to_send: Value,
+) -> Bool {
+  let payee_outputs = list.filter(outputs, fn(o) { o.address == payee_address })
+  // Caluculate total value sent to payee
+  let value_sent_to_payee =
+    list.foldl(
+      payee_outputs,
+      value.zero(),
+      fn(n, acc) { value.merge(n.value, acc) },
+    )
+  value_sent_to_payee == value_to_send
+}
+
+fn compute_new_start_time(
+  start_time: PosixTime,
+  payment_frenquency: PaymentFrenquency,
+) -> PosixTime {
+  when payment_frenquency is {
+    Hourly -> start_time + 60 * 60 * 1_000
+    Hours { hours } -> start_time + hours * 60 * 60 * 1_000
+    Daily -> start_time + 24 * 60 * 60 * 1_000
+    Days { days } -> start_time + days * 24 * 60 * 60 * 1_000
+    Weekly -> start_time + 7 * 24 * 60 * 60 * 1_000
+    Weeks { weeks } -> start_time + weeks * 7 * 24 * 60 * 60 * 1_000
+    Yearly -> start_time + 365 * 24 * 60 * 60 * 1_000
+  }
+}
+
 validator {
   fn automatic_payments(
     datum: Datum,
@@ -104,6 +117,7 @@ validator {
   ) -> Bool {
     when redeemer is {
       Withdraw { owner_payment_pkh } -> {
+        trace @"Withdraw"
         let must_be_signed =
           list.has(
             context.transaction.extra_signatories,
@@ -111,24 +125,92 @@ validator {
           )
         owner_payment_pkh == datum.owner_payment_pkh && must_be_signed
       }
-      Spend -> {
+      ExecutePayment -> {
+        trace @"ExecutePayment"
+
+        // Common part
+        let ScriptContext { transaction, purpose } = context
+        expect Spend(locked_input_reference) = purpose
+
+        let locked_input_opt =
+          list.find(
+            transaction.inputs,
+            fn(x) { locked_input_reference == x.output_reference },
+          )
+        expect Some(locked_input) = locked_input_opt
+        let Transaction { outputs, .. } = transaction
+
+        let value_to_send =
+          list.foldl(
+            datum.amount_to_send,
+            value.zero(),
+            fn(n, acc) { value.add(acc, n.1st, n.2nd, n.3rd) },
+          )
+
         // Must be signed by the bot
         let must_be_signed_by_bot =
           list.has(context.transaction.extra_signatories, datum.bot_payment_pkh)
 
         // Checking Timing is right
         let is_tx_time_valid =
-          datum |> is_paymet_time_valid(context.transaction.validity_range)
+          datum |> is_payment_time_valid_v2(context.transaction.validity_range)
 
         // Check right amount + fee is sent to destination address
+        let payee_address =
+          Address {
+            payment_credential: datum.payee_payment_credential,
+            stake_credential: datum.payee_stake_credential,
+          }
+        let must_pay_payee =
+          is_right_amount_sent_to_payee(payee_address, outputs, value_to_send)
+
+        // Check right amount is returned to script
+        expect ScriptCredential(script_hash) =
+          locked_input.output.address.payment_credential
+        expect [script_output] =
+          list.filter(
+            outputs,
+            fn(o) {
+              when o.address.payment_credential is {
+                ScriptCredential(output_hash) -> script_hash == output_hash
+                _ -> False
+              }
+            },
+          )
+        let spent_amount =
+          value.merge(transaction.fee, value_to_send) |> value.negate
+        let is_amount_sent_back_to_script_correct =
+          script_output.value == value.merge(
+            locked_input.output.value,
+            spent_amount,
+          )
+
+        let expected_datum =
+          Datum(
+            datum.owner_payment_pkh,
+            datum.amount_to_send,
+            datum.payee_payment_credential,
+            datum.payee_stake_credential,
+            compute_new_start_time(datum.start_time, datum.payment_frenquency),
+            datum.payment_frenquency,
+            datum.max_payment_delay_hours,
+            datum.bot_payment_pkh,
+          )
+        expect InlineDatum(data) = script_output.datum
+        expect actual_datum: Datum = data
+        let is_valid_datum = expected_datum == actual_datum
+
         // Check new datum is created
-        must_be_signed_by_bot && is_tx_time_valid
+        // let locked_output = locked_input.output
+        // let locked_value = locked_output.value
+        must_pay_payee? && must_be_signed_by_bot? && is_amount_sent_back_to_script_correct? && is_valid_datum? && is_tx_time_valid?
       }
     }
   }
 }
 
 test is_payment_time_valid_succeed() {
-  let datum = Datum(#"", #"", None, 5, None, #"")
+  let datum =
+    Datum(#"", [], VerificationKeyCredential(#""), None, 5, Hourly, None, #"")
   is_payment_time_valid_v2(datum, after(6))
 }
