@@ -1,6 +1,7 @@
 use aiken/hash.{Blake2b_224, Hash}
-use aiken/interval.{Finite, Interval, IntervalBound, after}
+use aiken/interval.{Finite, Interval, IntervalBound, after, between}
 use aiken/list
+use aiken/string
 use aiken/time.{PosixTime}
 use aiken/transaction.{
   InlineDatum, Output, ScriptContext, Spend, Transaction, ValidityRange,
@@ -70,11 +71,12 @@ fn is_payment_time_valid_v2(self: Datum, validity_range: ValidityRange) -> Bool 
       Some(max_delay_hours) ->
         when validity_range.upper_bound.bound_type is {
           Finite(tx_latest_time) ->
-            tx_latest_time <= self.start_time + max_delay_hours * 60 * 60
+            tx_latest_time < self.start_time + max_delay_hours * 60 * 60 * 1000
+
           _ -> False
         }
     }
-  is_start_time_valid && is_end_time_valid
+  is_start_time_valid? && is_end_time_valid?
 }
 
 // Right amonut is sent to payee
@@ -209,8 +211,92 @@ validator {
   }
 }
 
-test is_payment_time_valid_succeed() {
+test is_payment_time_valid_succeed_start_time_only() {
   let datum =
-    Datum(#"", [], VerificationKeyCredential(#""), None, 5, Hourly, None, #"")
-  is_payment_time_valid_v2(datum, after(6))
+    Datum(
+      #"",
+      [],
+      VerificationKeyCredential(#""),
+      None,
+      1719835200000,
+      Hourly,
+      None,
+      #"",
+    )
+  is_payment_time_valid_v2(datum, after(1719838800000))
+}
+
+test is_payment_time_valid_succeed_start_time_only_interval() {
+  let datum =
+    Datum(
+      #"",
+      [],
+      VerificationKeyCredential(#""),
+      None,
+      1719835200000,
+      Hourly,
+      None,
+      #"",
+    )
+  is_payment_time_valid_v2(datum, between(1719838800000, 1719849600000))
+}
+
+test is_payment_time_valid_succeed_start_time_and_max_delay() {
+  let datum =
+    Datum(
+      #"",
+      [],
+      VerificationKeyCredential(#""),
+      None,
+      1719835200000,
+      Hourly,
+      Some(5),
+      #"",
+    )
+  is_payment_time_valid_v2(datum, between(1719838800000, 1719849600000))
+}
+
+test is_payment_time_valid_succeed_start_time_overlap_and_max_delay() {
+  let datum =
+    Datum(
+      #"",
+      [],
+      VerificationKeyCredential(#""),
+      None,
+      1719835200000,
+      Hourly,
+      Some(5),
+      #"",
+    )
+  is_payment_time_valid_v2(datum, between(1719835200000, 1719849600000))
+}
+
+test is_payment_time_valid_fail_start_time_and_max_delay_overlap() {
+  let datum =
+    Datum(
+      #"",
+      [],
+      VerificationKeyCredential(#""),
+      None,
+      1719835200000,
+      Hourly,
+      Some(5),
+      #"",
+    )
+  !is_payment_time_valid_v2(datum, between(1719831600000, 1719853200000))
+}
+
+test is_payment_time_valid_fail_earlier_start_time() {
+  let datum =
+    Datum(
+      #"",
+      [],
+      VerificationKeyCredential(#""),
+      None,
+      1719835200000,
+      Hourly,
+      Some(5),
+      #"",
+    )
+  !is_payment_time_valid_v2(datum, after(1719831600000))
 }
