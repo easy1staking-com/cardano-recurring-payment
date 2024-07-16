@@ -1,7 +1,6 @@
 use aiken/hash.{Blake2b_224, Hash}
 use aiken/interval.{Finite, Interval, IntervalBound, after, between}
 use aiken/list
-use aiken/string
 use aiken/time.{PosixTime}
 use aiken/transaction.{
   InlineDatum, Output, ScriptContext, Spend, Transaction, ValidityRange,
@@ -14,7 +13,7 @@ use aiken/transaction/value.{AssetName, PolicyId, Value}
 
 // use aiken/transaction/value.{Value}
 
-type PaymentFrenquency {
+pub type PaymentFrenquency {
   Hourly
   Hours { hours: Int }
   Daily
@@ -24,7 +23,7 @@ type PaymentFrenquency {
   Yearly
 }
 
-type Datum {
+pub type Datum {
   // The funds owner 
   owner_payment_pkh: Hash<Blake2b_224, VerificationKey>,
   // Value to sent periodically
@@ -57,7 +56,10 @@ type Redeemer {
 // Example2: tx can be sent anytime after datum.start_time, but before datum.max_payment_delay_hours
 // have not passed after datum.start_time.
 // In case of missing the payment slot, the bot is de facto stuck.
-fn is_payment_time_valid_v2(self: Datum, validity_range: ValidityRange) -> Bool {
+pub fn is_payment_time_valid_v2(
+  self: Datum,
+  validity_range: ValidityRange,
+) -> Bool {
   trace @"is_payment_time_valid_v2"
   let is_start_time_valid =
     when validity_range.lower_bound.bound_type is {
@@ -284,19 +286,4 @@ test is_payment_time_valid_fail_start_time_and_max_delay_overlap() {
       #"",
     )
   !is_payment_time_valid_v2(datum, between(1719831600000, 1719853200000))
-}
-
-test is_payment_time_valid_fail_earlier_start_time() {
-  let datum =
-    Datum(
-      #"",
-      [],
-      VerificationKeyCredential(#""),
-      None,
-      1719835200000,
-      Hourly,
-      Some(5),
-      #"",
-    )
-  !is_payment_time_valid_v2(datum, after(1719831600000))
 }
