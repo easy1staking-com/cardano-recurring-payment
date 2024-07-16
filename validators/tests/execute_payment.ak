@@ -4,7 +4,7 @@ use aiken/transaction.{
   TransactionId,
 }
 use aiken/transaction/credential.{Address, VerificationKeyCredential}
-use aiken/transaction/value
+use aiken/transaction/value.{add}
 use automatic_payments.{
   Daily, Datum, Days, Hourly, Weeks, Withdraw, automatic_payments,
   compute_new_start_time, is_payment_time_valid, is_right_amount_sent_to_payee,
@@ -228,6 +228,42 @@ test is_right_amount_sent_to_payee_succeed_some_value() {
     outputs,
     value.from_lovelace(4_000_000),
   )
+}
+
+test is_right_amount_sent_to_payee_succeed_some_value_and_asset() {
+  let policy = #"a0028f350aaabe0545fdcb56b039bfb08e4bb4d8c4d7c3c7d481c235"
+  let asset = #"484f534b59"
+
+  let payee_address =
+    Address(VerificationKeyCredential(payee_payment_pkh), None)
+  let other_address = Address(VerificationKeyCredential(payment_pkh_1), None)
+
+  let outputs =
+    [
+      Output {
+        address: payee_address,
+        value: value.from_lovelace(1_000_000),
+        datum: NoDatum,
+        reference_script: None,
+      },
+      Output {
+        address: other_address,
+        value: value.from_lovelace(10_000_000),
+        datum: NoDatum,
+        reference_script: None,
+      },
+      Output {
+        address: payee_address,
+        value: value.from_lovelace(3_000_000) |> add(policy, asset, 1_000_000),
+        datum: NoDatum,
+        reference_script: None,
+      },
+    ]
+
+  let expect_value =
+    value.from_lovelace(4_000_000) |> add(policy, asset, 1_000_000)
+
+  is_right_amount_sent_to_payee(payee_address, outputs, expect_value)
 }
 
 test is_right_amount_sent_to_payee_fail_different_value() {
