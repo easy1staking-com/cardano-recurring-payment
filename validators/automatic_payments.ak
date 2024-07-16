@@ -8,7 +8,7 @@ use aiken/transaction.{
 use aiken/transaction/credential.{
   Address, PaymentCredential, ScriptCredential, StakeCredential, VerificationKey,
 }
-use aiken/transaction/value.{AssetName, PolicyId, Value}
+use aiken/transaction/value.{AssetName, PolicyId, Value, add}
 
 // use aiken/transaction/value.{Value}
 
@@ -152,7 +152,7 @@ validator {
           list.foldl(
             datum.amount_to_send,
             value.zero(),
-            fn(n, acc) { value.add(acc, n.1st, n.2nd, n.3rd) },
+            fn(n, acc) { acc |> add(n.1st, n.2nd, n.3rd) },
           )
 
         // Must be signed by the bot
@@ -193,6 +193,7 @@ validator {
             spent_amount,
           )
 
+        // Check new datum is created
         let expected_datum =
           Datum(
             datum.owner_payment_pkh,
@@ -208,9 +209,6 @@ validator {
         expect actual_datum: Datum = data
         let is_valid_datum = expected_datum == actual_datum
 
-        // Check new datum is created
-        // let locked_output = locked_input.output
-        // let locked_value = locked_output.value
         must_pay_payee? && must_be_signed_by_bot? && is_amount_sent_back_to_script_correct? && is_valid_datum? && is_tx_time_valid?
       }
     }
