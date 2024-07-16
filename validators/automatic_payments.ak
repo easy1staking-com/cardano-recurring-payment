@@ -94,18 +94,26 @@ fn is_right_amount_sent_to_payee(
   value_sent_to_payee == value_to_send
 }
 
-fn compute_new_start_time(
+fn hours_to_millis(hours: Int) {
+  hours * 60 * 60 * 1_000
+}
+
+fn days_to_millis(days: Int) {
+  days * hours_to_millis(24)
+}
+
+pub fn compute_new_start_time(
   start_time: PosixTime,
   payment_frenquency: PaymentFrenquency,
 ) -> PosixTime {
   when payment_frenquency is {
-    Hourly -> start_time + 60 * 60 * 1_000
-    Hours { hours } -> start_time + hours * 60 * 60 * 1_000
-    Daily -> start_time + 24 * 60 * 60 * 1_000
-    Days { days } -> start_time + days * 24 * 60 * 60 * 1_000
-    Weekly -> start_time + 7 * 24 * 60 * 60 * 1_000
-    Weeks { weeks } -> start_time + weeks * 7 * 24 * 60 * 60 * 1_000
-    Yearly -> start_time + 365 * 24 * 60 * 60 * 1_000
+    Hourly -> start_time + hours_to_millis(1)
+    Hours { hours } -> start_time + hours_to_millis(hours)
+    Daily -> start_time + days_to_millis(1)
+    Days { days } -> start_time + days_to_millis(days)
+    Weekly -> start_time + days_to_millis(7)
+    Weeks { weeks } -> start_time + weeks * days_to_millis(7)
+    Yearly -> start_time + days_to_millis(365)
   }
 }
 
