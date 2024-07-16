@@ -42,8 +42,8 @@ pub type Datum {
   bot_payment_pkh: Hash<Blake2b_224, VerificationKey>,
 }
 
-type Redeemer {
-  Withdraw { owner_payment_pkh: Hash<Blake2b_224, VerificationKey> }
+pub type Redeemer {
+  Withdraw
   ExecutePayment
 }
 
@@ -78,7 +78,7 @@ pub fn is_payment_time_valid(self: Datum, validity_range: ValidityRange) -> Bool
 }
 
 // Right amonut is sent to payee
-fn is_right_amount_sent_to_payee(
+pub fn is_right_amount_sent_to_payee(
   payee_address: Address,
   outputs: List<Output>,
   value_to_send: Value,
@@ -118,20 +118,20 @@ pub fn compute_new_start_time(
 }
 
 validator {
-  fn automatic_payments(
+  pub fn automatic_payments(
     datum: Datum,
     redeemer: Redeemer,
     context: ScriptContext,
   ) -> Bool {
     when redeemer is {
-      Withdraw { owner_payment_pkh } -> {
+      Withdraw -> {
         trace @"Withdraw"
-        let must_be_signed =
+        let must_be_signed_by_owner =
           list.has(
             context.transaction.extra_signatories,
             datum.owner_payment_pkh,
           )
-        owner_payment_pkh == datum.owner_payment_pkh && must_be_signed
+        must_be_signed_by_owner
       }
       ExecutePayment -> {
         trace @"ExecutePayment"
