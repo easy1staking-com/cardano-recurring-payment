@@ -6,9 +6,10 @@ use aiken/transaction.{
 use aiken/transaction/credential.{Address, VerificationKeyCredential}
 use aiken/transaction/value.{add}
 use automatic_payments.{
-  Daily, Datum, Days, Hourly, Weeks, Withdraw, automatic_payments,
-  compute_new_start_time, is_payment_time_valid, is_right_amount_sent_to_payee,
+  Daily, Datum, Days, Hourly, Weeks, automatic_payments, compute_new_start_time,
+  is_payment_time_valid, is_right_amount_sent_to_payee,
 }
+use types/automatic_payments.{Withdraw} as automatic_payments_types
 
 const payment_pkh = #"4f0f62955aaac98d8ffc1d26279cfafc9cbf46f44225e269bbe29560"
 

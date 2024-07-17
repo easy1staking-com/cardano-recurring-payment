@@ -9,8 +9,8 @@ use aiken/transaction/credential.{
   Address, PaymentCredential, ScriptCredential, StakeCredential, VerificationKey,
 }
 use aiken/transaction/value.{AssetName, PolicyId, Value, add}
-
-// use aiken/transaction/value.{Value}
+use types/automatic_payments.{ExecutePayment,
+  Redeemer, Withdraw} as automatic_payments_types
 
 pub type PaymentFrenquency {
   Hourly
@@ -40,11 +40,6 @@ pub type Datum {
   max_payment_delay_hours: Option<Int>,
   // BOT Payment PKH
   bot_payment_pkh: Hash<Blake2b_224, VerificationKey>,
-}
-
-pub type Redeemer {
-  Withdraw
-  ExecutePayment
 }
 
 // fn isBotAllowed(self: Datum, )
