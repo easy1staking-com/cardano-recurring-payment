@@ -1,38 +1,15 @@
-use aiken/hash.{Blake2b_224, Hash}
 use aiken/interval.{Finite, Interval, IntervalBound}
 use aiken/list
 use aiken/time.{PosixTime}
 use aiken/transaction.{
   InlineDatum, Output, ScriptContext, Spend, Transaction, ValidityRange,
 }
-use aiken/transaction/credential.{
-  Address, PaymentCredential, ScriptCredential, StakeCredential, VerificationKey,
-}
-use aiken/transaction/value.{AssetName, PolicyId, Value, add}
+use aiken/transaction/credential.{Address, ScriptCredential}
+use aiken/transaction/value.{Value, add}
 use types/automatic_payments.{
-  Daily, Days, ExecutePayment, Hourly, Hours, PaymentFrenquency, Redeemer,
+  Daily, Datum, Days, ExecutePayment, Hourly, Hours, PaymentFrenquency, Redeemer,
   Weekly, Weeks, Withdraw, Yearly,
 } as automatic_payments_types
-
-pub type Datum {
-  // The funds owner 
-  owner_payment_pkh: Hash<Blake2b_224, VerificationKey>,
-  // Value to sent periodically
-  amount_to_send: List<(PolicyId, AssetName, Int)>,
-  // opaque type, to be replaced
-  // Destination address Payment pub key
-  payee_payment_credential: PaymentCredential,
-  // Destination address Staking pub key (optional)
-  payee_stake_credential: Option<StakeCredential>,
-  // Starting Date Time. Namely time of the first payment should be made
-  start_time: PosixTime,
-  // How often to perform a payment
-  payment_frenquency: PaymentFrenquency,
-  // Maximum delay to perform payment within a period. Expressed in hours.
-  max_payment_delay_hours: Option<Int>,
-  // BOT Payment PKH
-  bot_payment_pkh: Hash<Blake2b_224, VerificationKey>,
-}
 
 // fn isBotAllowed(self: Datum, )
 
