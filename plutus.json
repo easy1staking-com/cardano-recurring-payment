@@ -194,7 +194,7 @@
             },
             {
               "title": "payment_frenquency",
-              "$ref": "#/definitions/automatic_payments~1PaymentFrenquency"
+              "$ref": "#/definitions/types~1automatic_payments~1PaymentFrenquency"
             },
             {
               "title": "max_payment_delay_hours",
@@ -208,7 +208,7 @@
         }
       ]
     },
-    "automatic_payments/PaymentFrenquency": {
+    "types/automatic_payments/PaymentFrenquency": {
       "title": "PaymentFrenquency",
       "anyOf": [
         {

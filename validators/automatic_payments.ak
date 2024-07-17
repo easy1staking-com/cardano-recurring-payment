@@ -9,18 +9,10 @@ use aiken/transaction/credential.{
   Address, PaymentCredential, ScriptCredential, StakeCredential, VerificationKey,
 }
 use aiken/transaction/value.{AssetName, PolicyId, Value, add}
-use types/automatic_payments.{ExecutePayment,
-  Redeemer, Withdraw} as automatic_payments_types
-
-pub type PaymentFrenquency {
-  Hourly
-  Hours { hours: Int }
-  Daily
-  Days { days: Int }
-  Weekly
-  Weeks { weeks: Int }
-  Yearly
-}
+use types/automatic_payments.{
+  Daily, Days, ExecutePayment, Hourly, Hours, PaymentFrenquency, Redeemer,
+  Weekly, Weeks, Withdraw, Yearly,
+} as automatic_payments_types
 
 pub type Datum {
   // The funds owner 
