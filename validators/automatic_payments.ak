@@ -11,7 +11,7 @@ use types/automatic_payments.{
   Weekly, Weeks, Withdraw, Yearly,
 } as automatic_payments_types
 
-// fn isBotAllowed(self: Datum, )
+const bot_fee_lovelaces = 250_000
 
 // Sending funds must happen after a certain moment in time has passed, but also,
 // if defined, a maximum delay has not passed.
@@ -119,15 +119,11 @@ validator {
             fn(n, acc) { acc |> add(n.1st, n.2nd, n.3rd) },
           )
 
-        // Must be signed by the bot
-        let must_be_signed_by_bot =
-          list.has(context.transaction.extra_signatories, datum.bot_payment_pkh)
-
         // Checking Timing is right
         let is_tx_time_valid =
           datum |> is_payment_time_valid(context.transaction.validity_range)
 
-        // Check right amount + fee is sent to destination address
+        // Check right amount is sent to payee
         let payee_address =
           Address {
             payment_credential: datum.payee_payment_credential,
@@ -150,7 +146,10 @@ validator {
             },
           )
         let spent_amount =
-          value.merge(transaction.fee, value_to_send) |> value.negate
+          value.from_lovelace(bot_fee_lovelaces)
+            |> value.merge(value_to_send)
+            |> value.merge(transaction.fee)
+            |> value.negate
         let is_amount_sent_back_to_script_correct =
           script_output.value == value.merge(
             locked_input.output.value,
@@ -159,19 +158,20 @@ validator {
 
         // Check new datum is created
         let expected_datum =
-          Datum(
-            datum.owner_payment_pkh,
-            datum.amount_to_send,
-            datum.payee_payment_credential,
-            datum.payee_stake_credential,
-            compute_new_start_time(datum.start_time, datum.payment_frenquency),
-            datum.payment_frenquency,
-            datum.max_payment_delay_hours,
-            datum.bot_payment_pkh,
-          )
+          Datum {
+            ..datum,
+            start_time: compute_new_start_time(
+              datum.start_time,
+              datum.payment_frenquency,
+            ),
+          }
         expect InlineDatum(data) = script_output.datum
         expect actual_datum: Datum = data
         let is_valid_datum = expected_datum == actual_datum
+
+        // Must be signed by the bot
+        let must_be_signed_by_bot =
+          list.has(context.transaction.extra_signatories, datum.bot_payment_pkh)
 
         must_pay_payee? && must_be_signed_by_bot? && is_amount_sent_back_to_script_correct? && is_valid_datum? && is_tx_time_valid?
       }

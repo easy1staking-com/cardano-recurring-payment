@@ -8,6 +8,8 @@ use aiken/transaction/value.{AssetName, PolicyId}
 pub type Datum {
   // The funds owner 
   owner_payment_pkh: Hash<Blake2b_224, VerificationKey>,
+  // The funds owner 
+  owner_stake_pkh: Option<StakeCredential>,
   // Value to sent periodically
   amount_to_send: List<(PolicyId, AssetName, Int)>,
   // opaque type, to be replaced

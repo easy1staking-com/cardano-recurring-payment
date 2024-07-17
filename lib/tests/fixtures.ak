@@ -4,6 +4,7 @@ use types/automatic_payments.{Datum, Hourly}
 pub fn datum_template() {
   Datum(
     #"",
+    None,
     [],
     VerificationKeyCredential(#""),
     None,
