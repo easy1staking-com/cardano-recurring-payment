@@ -133,6 +133,7 @@ validator {
           is_right_amount_sent_to_payee(payee_address, outputs, value_to_send)
 
         // Check right amount is returned to script
+        // FIXE ME: this should check that this is returning to a mingled stake address
         expect ScriptCredential(script_hash) =
           locked_input.output.address.payment_credential
         expect [script_output] =
