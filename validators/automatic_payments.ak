@@ -4,7 +4,9 @@ use aiken/time.{PosixTime}
 use aiken/transaction.{
   InlineDatum, Output, ScriptContext, Spend, Transaction, ValidityRange,
 }
-use aiken/transaction/credential.{Address, ScriptCredential}
+use aiken/transaction/credential.{
+  Address, ScriptCredential, VerificationKeyCredential,
+}
 use aiken/transaction/value.{Value, add}
 use types/automatic_payments.{
   Daily, Datum, Days, ExecutePayment, Hourly, Hours, PaymentFrenquency, Redeemer,
@@ -20,7 +22,6 @@ const bot_fee_lovelaces = 250_000
 // have not passed after datum.start_time.
 // In case of missing the payment slot, the bot is de facto stuck.
 pub fn is_payment_time_valid(self: Datum, validity_range: ValidityRange) -> Bool {
-  trace @"is_payment_time_valid"
   let is_start_time_valid =
     when validity_range.lower_bound.bound_type is {
       Finite(tx_earliest_time) -> self.start_time <= tx_earliest_time
@@ -136,16 +137,13 @@ validator {
         // FIXE ME: this should check that this is returning to a mingled stake address
         expect ScriptCredential(script_hash) =
           locked_input.output.address.payment_credential
+        let script_address =
+          Address {
+            payment_credential: VerificationKeyCredential(script_hash),
+            stake_credential: datum.owner_stake_pkh,
+          }
         expect [script_output] =
-          list.filter(
-            outputs,
-            fn(o) {
-              when o.address.payment_credential is {
-                ScriptCredential(output_hash) -> script_hash == output_hash
-                _ -> False
-              }
-            },
-          )
+          list.filter(outputs, fn(o) { o.address == script_address })
         let spent_amount =
           value.from_lovelace(bot_fee_lovelaces)
             |> value.merge(value_to_send)
