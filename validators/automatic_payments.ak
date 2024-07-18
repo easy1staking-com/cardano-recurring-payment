@@ -13,10 +13,9 @@ use types/automatic_payments.{
   PaymentFrenquency, Redeemer, Weekly, Weeks, Withdraw, Yearly,
 } as automatic_payments_types
 
+// This will be replace with the policy ID of an NFT at a later stage
 pub const configuration_nft =
   #"00000000000000000000000000000000000000000000000000000000"
-
-const bot_fee_lovelaces = 250_000
 
 // Sending funds must happen after a certain moment in time has passed, but also,
 // if defined, a maximum delay has not passed.
@@ -123,6 +122,7 @@ validator {
         let ScriptContext { transaction, purpose } = context
         expect Spend(locked_input_reference) = purpose
 
+        // Find the input locked by the script
         let locked_input_opt =
           list.find(
             transaction.inputs,
@@ -131,12 +131,16 @@ validator {
         expect Some(locked_input) = locked_input_opt
         let Transaction { outputs, .. } = transaction
 
+        // Value is an opaque type, so build it here from the list of tokens in the datum.
         let value_to_send =
           list.foldl(
             datum.amount_to_send,
             value.zero(),
             fn(n, acc) { acc |> add(n.1st, n.2nd, n.3rd) },
           )
+
+        // Read configuration from ref input
+        let configuration = load_configuration(transaction)
 
         // Checking Timing is right
         let is_tx_time_valid =
@@ -151,8 +155,7 @@ validator {
         let must_pay_payee =
           is_right_amount_sent_to_payee(payee_address, outputs, value_to_send)
 
-        // Check right amount is returned to script
-        // FIXE ME: this should check that this is returning to a mingled stake address
+        // Check right amount is returned to the script, if stake address is specified, the address must be a mingled or franken address.
         expect ScriptCredential(script_hash) =
           locked_input.output.address.payment_credential
         let script_address =
@@ -162,8 +165,13 @@ validator {
           }
         expect [script_output] =
           list.filter(outputs, fn(o) { o.address == script_address })
+
+        // Calculated the amount spent by the sender:
+        // 1. bot operator fees
+        // 2. transaction fee
+        // 3. payment amount
         let spent_amount =
-          value.from_lovelace(bot_fee_lovelaces)
+          value.from_lovelace(configuration.bot_fee_lovelaces)
             |> value.merge(value_to_send)
             |> value.merge(transaction.fee)
             |> value.negate
@@ -188,7 +196,10 @@ validator {
 
         // Must be signed by the bot
         let must_be_signed_by_bot =
-          list.has(context.transaction.extra_signatories, datum.bot_payment_pkh)
+          list.has(
+            context.transaction.extra_signatories,
+            configuration.bot_payment_pkh,
+          )
 
         must_pay_payee? && must_be_signed_by_bot? && is_amount_sent_back_to_script_correct? && is_valid_datum? && is_tx_time_valid?
       }

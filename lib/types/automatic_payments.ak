@@ -23,8 +23,6 @@ pub type Datum {
   payment_frenquency: PaymentFrenquency,
   // Maximum delay to perform payment within a period. Expressed in hours.
   max_payment_delay_hours: Option<Int>,
-  // BOT Payment PKH
-  bot_payment_pkh: Hash<Blake2b_224, VerificationKey>,
 }
 
 pub type Redeemer {
@@ -43,6 +41,7 @@ pub type PaymentFrenquency {
 }
 
 pub type Configuration {
+  // BOT Payment PKH
   bot_payment_pkh: Hash<Blake2b_224, VerificationKey>,
   bot_fee_lovelaces: Int,
 }

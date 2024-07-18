@@ -11,6 +11,5 @@ pub fn datum_template() {
     1719835200000,
     Hourly,
     None,
-    #"",
   )
 }
