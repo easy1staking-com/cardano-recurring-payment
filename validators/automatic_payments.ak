@@ -9,9 +9,12 @@ use aiken/transaction/credential.{
 }
 use aiken/transaction/value.{Value, add}
 use types/automatic_payments.{
-  Daily, Datum, Days, ExecutePayment, Hourly, Hours, PaymentFrenquency, Redeemer,
-  Weekly, Weeks, Withdraw, Yearly,
+  Configuration, Daily, Datum, Days, ExecutePayment, Hourly, Hours,
+  PaymentFrenquency, Redeemer, Weekly, Weeks, Withdraw, Yearly,
 } as automatic_payments_types
+
+pub const configuration_nft =
+  #"00000000000000000000000000000000000000000000000000000000"
 
 const bot_fee_lovelaces = 250_000
 
@@ -80,6 +83,21 @@ pub fn compute_new_start_time(
     Weeks { weeks } -> start_time + weeks * days_to_millis(7)
     Yearly -> start_time + days_to_millis(365)
   }
+}
+
+pub fn load_configuration(transaction: Transaction) -> Configuration {
+  expect Some(configuration_input) =
+    transaction.reference_inputs
+      |> list.find(
+          fn(input) {
+            input.output.value
+              |> value.flatten()
+              |> list.any(fn(asset) { asset.1st == configuration_nft })
+          },
+        )
+  expect InlineDatum(datum) = configuration_input.output.datum
+  expect configuration: Configuration = datum
+  configuration
 }
 
 validator {

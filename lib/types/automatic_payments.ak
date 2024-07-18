@@ -41,3 +41,8 @@ pub type PaymentFrenquency {
   Weeks { weeks: Int }
   Yearly
 }
+
+pub type Configuration {
+  bot_payment_pkh: Hash<Blake2b_224, VerificationKey>,
+  bot_fee_lovelaces: Int,
+}

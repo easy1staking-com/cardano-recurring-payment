@@ -1,17 +1,18 @@
 use aiken/interval.{after, between}
 use aiken/transaction.{
-  NoDatum, Output, OutputReference, ScriptContext, Spend, Transaction,
-  TransactionId,
+  InlineDatum, Input, NoDatum, Output, OutputReference, ScriptContext, Spend,
+  Transaction, TransactionId,
 }
 use aiken/transaction/credential.{Address, VerificationKeyCredential}
 use aiken/transaction/value.{add}
 use automatic_payments.{
-  automatic_payments, compute_new_start_time, is_payment_time_valid,
-  is_right_amount_sent_to_payee,
+  automatic_payments, compute_new_start_time, configuration_nft,
+  is_payment_time_valid, is_right_amount_sent_to_payee, load_configuration,
 }
 use tests/fixtures.{datum_template}
-use types/automatic_payments.{Daily,
-  Datum, Days, Hourly, Weeks, Withdraw} as automatic_payments_types
+use types/automatic_payments.{
+  Configuration, Daily, Datum, Days, Hourly, Weeks, Withdraw,
+} as automatic_payments_types
 
 const payment_pkh = #"4f0f62955aaac98d8ffc1d26279cfafc9cbf46f44225e269bbe29560"
 
@@ -25,6 +26,9 @@ const payee_payment_pkh =
 
 // const payee_staking_pkh =
 //   #"414c2c4e10f6171c57b4fbc6f2fdb10139cd43058092732fcdb3a764"
+
+const bot_payment_pkh =
+  #"018f6b977da177061ad00cf4ef14f429ebc7befb40a843314e7575d9"
 
 test automatic_payments_succeed_withdraw() {
   let datum =
@@ -251,4 +255,100 @@ test is_right_amount_sent_to_payee_fail_different_value() {
     outputs,
     value.from_lovelace(10_000_000),
   )
+}
+
+// Testing Configuration
+test load_configuration_fail_no_ref_inputs() fail {
+  let transaction: Transaction = transaction.placeholder()
+  let configuration = load_configuration(transaction)
+  configuration == configuration
+}
+
+test load_configuration_fail_missing_configuration_ref_input() fail {
+  let address = payment_pkh_1 |> credential.from_verification_key
+
+  let transaction =
+    Transaction {
+      ..transaction.placeholder(),
+      reference_inputs: [
+        Input(
+          OutputReference(TransactionId(#""), 0),
+          Output {
+            address,
+            value: value.from_lovelace(10_000_000),
+            datum: NoDatum,
+            reference_script: None,
+          },
+        ),
+      ],
+    }
+
+  let configuration = load_configuration(transaction)
+  configuration == configuration
+}
+
+test load_configuration_fail_no_datum() fail {
+  let address = payment_pkh_1 |> credential.from_verification_key
+
+  let transaction =
+    Transaction {
+      ..transaction.placeholder(),
+      reference_inputs: [
+        Input(
+          OutputReference(TransactionId(#""), 0),
+          Output {
+            address,
+            value: value.from_lovelace(10_000_000),
+            datum: NoDatum,
+            reference_script: None,
+          },
+        ),
+        Input(
+          OutputReference(TransactionId(#""), 0),
+          Output {
+            address,
+            value: value.from_lovelace(10_000_000)
+              |> add(configuration_nft, configuration_nft, 1),
+            datum: NoDatum,
+            reference_script: None,
+          },
+        ),
+      ],
+    }
+
+  let configuration = load_configuration(transaction)
+  configuration == configuration
+}
+
+test load_configuration_succeed() {
+  let address = payment_pkh_1 |> credential.from_verification_key
+  let expected_configuration = Configuration(bot_payment_pkh, 1_000_000)
+  let transaction =
+    Transaction {
+      ..transaction.placeholder(),
+      reference_inputs: [
+        Input(
+          OutputReference(TransactionId(#""), 0),
+          Output {
+            address,
+            value: value.from_lovelace(10_000_000),
+            datum: NoDatum,
+            reference_script: None,
+          },
+        ),
+        Input(
+          OutputReference(TransactionId(#""), 0),
+          Output {
+            address,
+            value: value.from_lovelace(10_000_000)
+              |> add(configuration_nft, configuration_nft, 1),
+            datum: InlineDatum(expected_configuration),
+            reference_script: None,
+          },
+        ),
+      ],
+    }
+
+  let actual_configuration = load_configuration(transaction)
+  actual_configuration == expected_configuration
 }
