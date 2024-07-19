@@ -20,10 +20,12 @@ pub type Datum {
   start_time: PosixTime,
   /// If specified, no more payments must be made after end date. This can be used to determine how many payments to make (start_time + (N + 1) * payment_frequency)
   end_time: Option<PosixTime>,
-  // How often to perform a payment
+  /// How often to perform a payment
   payment_frenquency: PaymentFrenquency,
-  // Maximum delay to perform payment within a period. Expressed in hours.
+  /// Maximum delay to perform payment within a period. Expressed in hours.
   max_payment_delay_hours: Option<Int>,
+  /// max fee customer is willing to pay
+  max_fees_lovelace: Int,
 }
 
 pub type Redeemer {
@@ -44,5 +46,5 @@ pub type PaymentFrenquency {
 pub type Configuration {
   // BOT Payment PKH
   bot_payment_pkh: Hash<Blake2b_224, VerificationKey>,
-  bot_fee_lovelaces: Int,
+  bot_fee_lovelace: Int,
 }

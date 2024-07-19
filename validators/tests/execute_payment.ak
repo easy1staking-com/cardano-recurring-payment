@@ -173,24 +173,53 @@ test is_payment_time_valid_fail_start_time_and_end_time_and_fail_end_time() {
   !is_payment_time_valid(datum, between(1719838800000, 1719849600000))
 }
 
+// New Start time tests
 test compute_new_start_time_1_hour() {
-  compute_new_start_time(1721163789000, Hourly) == 1721167389000
+  compute_new_start_time(
+    1721163789000,
+    Hourly,
+    between(1721164509000, 1721165409000),
+  ) == 1721167389000
 }
 
 test compute_new_start_time_1_day() {
-  compute_new_start_time(1721163789000, Daily) == 1721250189000
+  compute_new_start_time(
+    1721163789000,
+    Daily,
+    between(1721164509000, 1721165409000),
+  ) == 1721250189000
 }
 
 test compute_new_start_time_3_day() {
-  compute_new_start_time(1721163789000, Days(3)) == 1721422989000
+  compute_new_start_time(
+    1721163789000,
+    Days(3),
+    between(1721164509000, 1721165409000),
+  ) == 1721422989000
 }
 
 test compute_new_start_time_5_day() {
-  compute_new_start_time(1721163789000, Days(5)) == 1721595789000
+  compute_new_start_time(
+    1721163789000,
+    Days(5),
+    between(1721164509000, 1721165409000),
+  ) == 1721595789000
 }
 
 test compute_new_start_time_2_weeks() {
-  compute_new_start_time(1721163789000, Weeks(2)) == 1722373389000
+  compute_new_start_time(
+    1721163789000,
+    Weeks(2),
+    between(1721164509000, 1721165409000),
+  ) == 1722373389000
+}
+
+test compute_new_start_time_end_time_skip_1h() {
+  compute_new_start_time(
+    1721163789000,
+    Hourly,
+    between(1721167809000, 1721169009000),
+  ) == 1721170989000
 }
 
 test is_right_amount_sent_to_payee_succeed_0_value() {

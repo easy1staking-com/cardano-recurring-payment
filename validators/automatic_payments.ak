@@ -77,18 +77,34 @@ fn days_to_millis(days: Int) {
   days * hours_to_millis(24)
 }
 
+fn to_millis(payment_frenquency: PaymentFrenquency) -> Int {
+  when payment_frenquency is {
+    Hourly -> hours_to_millis(1)
+    Hours { hours } -> hours_to_millis(hours)
+    Daily -> days_to_millis(1)
+    Days { days } -> days_to_millis(days)
+    Weekly -> days_to_millis(7)
+    Weeks { weeks } -> weeks * days_to_millis(7)
+    Yearly -> days_to_millis(365)
+  }
+}
+
 pub fn compute_new_start_time(
   start_time: PosixTime,
-  payment_frenquency: PaymentFrenquency,
+  payment_frequency: PaymentFrenquency,
+  validity_range: ValidityRange,
 ) -> PosixTime {
-  when payment_frenquency is {
-    Hourly -> start_time + hours_to_millis(1)
-    Hours { hours } -> start_time + hours_to_millis(hours)
-    Daily -> start_time + days_to_millis(1)
-    Days { days } -> start_time + days_to_millis(days)
-    Weekly -> start_time + days_to_millis(7)
-    Weeks { weeks } -> start_time + weeks * days_to_millis(7)
-    Yearly -> start_time + days_to_millis(365)
+  expect Finite(lower_bound) = validity_range.lower_bound.bound_type
+  let k = ( lower_bound - start_time ) / to_millis(payment_frequency) + 1
+
+  when payment_frequency is {
+    Hourly -> start_time + k * hours_to_millis(1)
+    Hours { hours } -> start_time + k * hours_to_millis(hours)
+    Daily -> start_time + k * days_to_millis(1)
+    Days { days } -> start_time + k * days_to_millis(days)
+    Weekly -> start_time + k * days_to_millis(7)
+    Weeks { weeks } -> start_time + k * weeks * days_to_millis(7)
+    Yearly -> start_time + k * days_to_millis(365)
   }
 }
 
@@ -174,12 +190,16 @@ validator {
         expect [script_output] =
           list.filter(outputs, fn(o) { o.address == script_address })
 
+        // check max fee
+        let is_bot_fee_ok =
+          datum.max_fees_lovelace >= configuration.bot_fee_lovelace
+
         // Calculated the amount spent by the sender:
         // 1. bot operator fees
         // 2. transaction fee
         // 3. payment amount
         let spent_amount =
-          value.from_lovelace(configuration.bot_fee_lovelaces)
+          value.from_lovelace(configuration.bot_fee_lovelace)
             |> value.merge(value_to_send)
             |> value.merge(transaction.fee)
             |> value.negate
@@ -196,6 +216,7 @@ validator {
             start_time: compute_new_start_time(
               datum.start_time,
               datum.payment_frenquency,
+              transaction.validity_range,
             ),
           }
         expect InlineDatum(data) = script_output.datum
@@ -209,7 +230,7 @@ validator {
             configuration.bot_payment_pkh,
           )
 
-        must_pay_payee? && must_be_signed_by_bot? && is_amount_sent_back_to_script_correct? && is_valid_datum? && is_tx_time_valid?
+        must_pay_payee? && must_be_signed_by_bot? && is_amount_sent_back_to_script_correct? && is_valid_datum? && is_tx_time_valid? && is_bot_fee_ok?
       }
     }
   }
