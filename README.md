@@ -34,4 +34,9 @@ unlock the funds and:
 ## Open points
 
 * Somewhere thre should be set a cap for the bot's fee, otherwise configuration could be updated to set the fees arbitrarily high, the cap should be at contract (constant) or datum level. Maybe customer should decide what's the maximum they want to pay
-* It could make sense to set in a datum the number of payments to sent. Like 10 daily payments.
+* It could make sense to set in a datum the number of payments to sent. Like 10 daily payments, or an equivalent `end_date` within which n payments, given the payment frequency, can be made. (this should be now implemented)
+
+## Known issues:
+
+* if payment late over the frequency, is only updated to the next start_time based one +1 interval, instead of skipping one or more intervals, this could potentially lead to multiple close payments to make up for the skipped ones
+* 

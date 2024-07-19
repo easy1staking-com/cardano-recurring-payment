@@ -74,6 +74,7 @@ test automatic_payments_fail_withdraw() {
   !automatic_payments(datum, Withdraw, context)
 }
 
+// Validity time/interval tests
 test is_payment_time_valid_succeed_start_time_only() {
   let datum = Datum { ..datum_template(), start_time: 1719835200000 }
   is_payment_time_valid(datum, after(1719838800000))
@@ -122,6 +123,54 @@ test is_payment_time_valid_fail_earlier_start_time() {
       max_payment_delay_hours: Some(5),
     }
   !is_payment_time_valid(datum, after(1719831600000))
+}
+
+// Add Valid interval test, no max hours and end_time and everything still works
+test is_payment_time_valid_succeed_start_time_and_time() {
+  let datum =
+    Datum {
+      ..datum_template(),
+      start_time: 1719835200000,
+      end_time: Some(1720699200000),
+    }
+  is_payment_time_valid(datum, between(1719838800000, 1719849600000))
+  // this might have to become between.
+}
+
+// Add Valid interval test, with max hours and end_time and everything still works
+test is_payment_time_valid_succeed_start_time_and_time_max_hours() {
+  let datum =
+    Datum {
+      ..datum_template(),
+      start_time: 1719835200000,
+      max_payment_delay_hours: Some(5),
+      end_time: Some(1720699200000),
+    }
+  is_payment_time_valid(datum, between(1719838800000, 1719849600000))
+}
+
+// Add Fail interval test, with max hours and end_time and it fails because of max hours
+test is_payment_time_valid_fail_start_time_and_time_and_fail_max_hours() {
+  let datum =
+    Datum {
+      ..datum_template(),
+      start_time: 1719835200000,
+      max_payment_delay_hours: Some(5),
+      end_time: Some(1720699200000),
+    }
+  !is_payment_time_valid(datum, between(1719831600000, 1719853200000))
+}
+
+// Add Fail interval test, it will initially pass, but then after code it should fail
+test is_payment_time_valid_fail_start_time_and_end_time_and_fail_end_time() {
+  let datum =
+    Datum {
+      ..datum_template(),
+      start_time: 1719835200000,
+      max_payment_delay_hours: Some(5),
+      end_time: Some(1719842400000),
+    }
+  !is_payment_time_valid(datum, between(1719838800000, 1719849600000))
 }
 
 test compute_new_start_time_1_hour() {

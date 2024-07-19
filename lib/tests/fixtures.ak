@@ -9,6 +9,7 @@ pub fn datum_template() {
     VerificationKeyCredential(#""),
     None,
     1719835200000,
+    None,
     Hourly,
     None,
   )

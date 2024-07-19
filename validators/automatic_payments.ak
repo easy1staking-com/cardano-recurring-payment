@@ -41,7 +41,15 @@ pub fn is_payment_time_valid(self: Datum, validity_range: ValidityRange) -> Bool
           _ -> False
         }
     }
-  is_start_time_valid? && is_end_time_valid?
+
+  let is_payment_deadline_valid =
+    when self.end_time is {
+      Some(actual_end_time) ->
+        !interval.contains(validity_range, actual_end_time)
+      _ -> True
+    }
+
+  is_start_time_valid? && is_end_time_valid? && is_payment_deadline_valid?
 }
 
 // Right amonut is sent to payee
