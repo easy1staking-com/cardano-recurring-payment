@@ -1,21 +1,19 @@
 use aiken/hash.{Blake2b_224, Hash}
 use aiken/time.{PosixTime}
-use aiken/transaction/credential.{
-  PaymentCredential, StakeCredential, VerificationKey,
-}
+use aiken/transaction/credential.{VerificationKey}
 use aiken/transaction/value.{AssetName, PolicyId}
 
 pub type Datum {
   /// The funds owner 
   owner_payment_pkh: Hash<Blake2b_224, VerificationKey>,
   /// The optional (?) stake address of the sender mingled address
-  owner_stake_pkh: Option<StakeCredential>,
+  owner_stake_pkh: Option<Hash<Blake2b_224, VerificationKey>>,
   /// Value to sent periodically
   amount_to_send: List<(PolicyId, AssetName, Int)>,
   /// Destination address Payment pub key
-  payee_payment_credential: PaymentCredential,
+  payee_payment_pkh: Hash<Blake2b_224, VerificationKey>,
   /// Destination address Staking pub key (optional)
-  payee_stake_credential: Option<StakeCredential>,
+  payee_stake_pkh: Option<Hash<Blake2b_224, VerificationKey>>,
   /// Starting Date Time. Namely time of the first payment should be made
   start_time: PosixTime,
   /// If specified, no more payments must be made after end date. This can be used to determine how many payments to make (start_time + (N + 1) * payment_frequency)

@@ -1,17 +1,5 @@
-use aiken/transaction/credential.{VerificationKeyCredential}
 use types/automatic_payments.{Datum, Hourly}
 
 pub fn datum_template() {
-  Datum(
-    #"",
-    None,
-    [],
-    VerificationKeyCredential(#""),
-    None,
-    1719835200000,
-    None,
-    Hourly,
-    None,
-    1_000_000,
-  )
+  Datum(#"", None, [], #"", None, 1719835200000, None, Hourly, None, 1_000_000)
 }

@@ -4,9 +4,7 @@ use aiken/time.{PosixTime}
 use aiken/transaction.{
   InlineDatum, Output, ScriptContext, Spend, Transaction, ValidityRange,
 }
-use aiken/transaction/credential.{
-  Address, ScriptCredential, VerificationKeyCredential,
-}
+use aiken/transaction/credential.{Address, ScriptCredential}
 use aiken/transaction/value.{Value, add}
 use types/automatic_payments.{
   Configuration, Daily, Datum, Days, ExecutePayment, Hourly, Hours,
@@ -80,7 +78,7 @@ fn days_to_millis(days: Int) {
 fn to_millis(payment_frenquency: PaymentFrenquency) -> Int {
   when payment_frenquency is {
     Hourly -> hours_to_millis(1)
-    Hours { hours } -> hours_to_millis(hours)
+    Hours { hours: _ } -> 10
     Daily -> days_to_millis(1)
     Days { days } -> days_to_millis(days)
     Weekly -> days_to_millis(7)
@@ -172,9 +170,12 @@ validator {
 
         // Check right amount is sent to payee
         let payee_address =
-          Address {
-            payment_credential: datum.payee_payment_credential,
-            stake_credential: datum.payee_stake_credential,
+          when datum.payee_stake_pkh is {
+            Some(stake_pkh) ->
+              datum.payee_payment_pkh
+                |> credential.from_verification_key
+                |> credential.with_delegation_key(stake_pkh)
+            None -> credential.from_verification_key(datum.payee_payment_pkh)
           }
         let must_pay_payee =
           is_right_amount_sent_to_payee(payee_address, outputs, value_to_send)
@@ -182,11 +183,16 @@ validator {
         // Check right amount is returned to the script, if stake address is specified, the address must be a mingled or franken address.
         expect ScriptCredential(script_hash) =
           locked_input.output.address.payment_credential
+
         let script_address =
-          Address {
-            payment_credential: VerificationKeyCredential(script_hash),
-            stake_credential: datum.owner_stake_pkh,
+          when datum.owner_stake_pkh is {
+            Some(stake_pkh) ->
+              script_hash
+                |> credential.from_verification_key
+                |> credential.with_delegation_key(stake_pkh)
+            None -> credential.from_verification_key(script_hash)
           }
+
         expect [script_output] =
           list.filter(outputs, fn(o) { o.address == script_address })
 
