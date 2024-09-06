@@ -1,8 +1,7 @@
 use aiken/collection/list
 use aiken/interval.{Finite, Interval, IntervalBound}
-use cardano/address.{Address, PaymentCredential, Script}
+use cardano/address.{Address, Script}
 use cardano/assets.{Value, merge, zero}
-use cardano/script_context.{ScriptContext}
 use cardano/transaction.{
   InlineDatum, Output, OutputReference, Transaction, ValidityRange,
 }

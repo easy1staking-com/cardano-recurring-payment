@@ -1,13 +1,17 @@
 use aiken/interval.{after, between}
 use automatic_payments.{
-  automatic_payments, compute_new_start_time, configuration_nft,
-  is_payment_time_valid, is_right_amount_sent_to_payee, load_configuration,
+  compute_new_start_time, configuration_nft, is_payment_time_valid,
+  is_right_amount_sent_to_payee, load_configuration,
 }
-use cardano/assets.{Value, merge, zero}
+use cardano/address.{Address, VerificationKey}
+use cardano/assets
+use cardano/transaction.{
+  InlineDatum, Input, NoDatum, Output, OutputReference, Transaction, placeholder,
+}
 use tests/fixtures.{datum_template}
 use types/automatic_payments.{
   Configuration, Daily, Datum, Days, Hourly, Weeks, Withdraw,
-} as automatic_payments_types
+} as spend_types
 
 const payment_pkh = #"4f0f62955aaac98d8ffc1d26279cfafc9cbf46f44225e269bbe29560"
 
@@ -32,19 +36,15 @@ test automatic_payments_succeed_withdraw() {
       owner_payment_pkh: payment_pkh,
       start_time: 1719835200000,
     }
+  let output_reference = OutputReference("", 0)
   let transaction =
-    Transaction {
-      ..transaction.placeholder(),
-      extra_signatories: [payment_pkh],
-    }
-  let context =
-    ScriptContext {
-      purpose: Spend(
-        OutputReference { transaction_id: TransactionId(""), output_index: 0 },
-      ),
-      transaction,
-    }
-  automatic_payments(datum, Withdraw, context)
+    Transaction { ..placeholder, extra_signatories: [payment_pkh] }
+  automatic_payments.automatic_payments.spend(
+    Some(datum),
+    Withdraw,
+    output_reference,
+    transaction,
+  )
 }
 
 test automatic_payments_fail_withdraw() {
@@ -54,19 +54,15 @@ test automatic_payments_fail_withdraw() {
       owner_payment_pkh: payment_pkh,
       start_time: 1719835200000,
     }
+  let output_reference = OutputReference("", 0)
   let transaction =
-    Transaction {
-      ..transaction.placeholder(),
-      extra_signatories: [payment_pkh_1],
-    }
-  let context =
-    ScriptContext {
-      purpose: Spend(
-        OutputReference { transaction_id: TransactionId(""), output_index: 0 },
-      ),
-      transaction,
-    }
-  !automatic_payments(datum, Withdraw, context)
+    Transaction { ..placeholder, extra_signatories: [payment_pkh_1] }
+  !automatic_payments.automatic_payments.spend(
+    Some(datum),
+    Withdraw,
+    output_reference,
+    transaction,
+  )
 }
 
 // Validity time/interval tests
@@ -220,34 +216,33 @@ test compute_new_start_time_end_time_skip_1h() {
 test is_right_amount_sent_to_payee_succeed_0_value() {
   let payee_address =
     Address {
-      payment_credential: VerificationKeyCredential(payee_payment_pkh),
+      payment_credential: VerificationKey(payee_payment_pkh),
       stake_credential: None,
     }
-  is_right_amount_sent_to_payee(payee_address, [], value.zero())
+  is_right_amount_sent_to_payee(payee_address, [], assets.zero)
 }
 
 test is_right_amount_sent_to_payee_succeed_some_value() {
-  let payee_address =
-    Address(VerificationKeyCredential(payee_payment_pkh), None)
-  let other_address = Address(VerificationKeyCredential(payment_pkh_1), None)
+  let payee_address = Address(VerificationKey(payee_payment_pkh), None)
+  let other_address = Address(VerificationKey(payment_pkh_1), None)
 
   let outputs =
     [
       Output {
         address: payee_address,
-        value: value.from_lovelace(1_000_000),
+        value: assets.from_lovelace(1_000_000),
         datum: NoDatum,
         reference_script: None,
       },
       Output {
         address: other_address,
-        value: value.from_lovelace(10_000_000),
+        value: assets.from_lovelace(10_000_000),
         datum: NoDatum,
         reference_script: None,
       },
       Output {
         address: payee_address,
-        value: value.from_lovelace(3_000_000),
+        value: assets.from_lovelace(3_000_000),
         datum: NoDatum,
         reference_script: None,
       },
@@ -256,7 +251,7 @@ test is_right_amount_sent_to_payee_succeed_some_value() {
   is_right_amount_sent_to_payee(
     payee_address,
     outputs,
-    value.from_lovelace(4_000_000),
+    assets.from_lovelace(4_000_000),
   )
 }
 
@@ -264,60 +259,59 @@ test is_right_amount_sent_to_payee_succeed_some_value_and_asset() {
   let policy = #"a0028f350aaabe0545fdcb56b039bfb08e4bb4d8c4d7c3c7d481c235"
   let asset = #"484f534b59"
 
-  let payee_address =
-    Address(VerificationKeyCredential(payee_payment_pkh), None)
-  let other_address = Address(VerificationKeyCredential(payment_pkh_1), None)
+  let payee_address = Address(VerificationKey(payee_payment_pkh), None)
+  let other_address = Address(VerificationKey(payment_pkh_1), None)
 
   let outputs =
     [
       Output {
         address: payee_address,
-        value: value.from_lovelace(1_000_000),
+        value: assets.from_lovelace(1_000_000),
         datum: NoDatum,
         reference_script: None,
       },
       Output {
         address: other_address,
-        value: value.from_lovelace(10_000_000),
+        value: assets.from_lovelace(10_000_000),
         datum: NoDatum,
         reference_script: None,
       },
       Output {
         address: payee_address,
-        value: value.from_lovelace(3_000_000) |> add(policy, asset, 1_000_000),
+        value: assets.from_lovelace(3_000_000)
+          |> assets.add(policy, asset, 1_000_000),
         datum: NoDatum,
         reference_script: None,
       },
     ]
 
   let expect_value =
-    value.from_lovelace(4_000_000) |> add(policy, asset, 1_000_000)
+    assets.from_lovelace(4_000_000) |> assets.add(policy, asset, 1_000_000)
 
   is_right_amount_sent_to_payee(payee_address, outputs, expect_value)
 }
 
 test is_right_amount_sent_to_payee_fail_different_value() {
-  let payee_address =
-    Address(VerificationKeyCredential(payee_payment_pkh), None)
-  let other_address = Address(VerificationKeyCredential(payment_pkh_1), None)
+  let payee_address = Address(VerificationKey(payee_payment_pkh), None)
+  let other_address = Address(VerificationKey(payment_pkh_1), None)
 
   let outputs =
     [
       Output {
         address: payee_address,
-        value: value.from_lovelace(1_000_000),
+        value: assets.from_lovelace(1_000_000),
         datum: NoDatum,
         reference_script: None,
       },
       Output {
         address: other_address,
-        value: value.from_lovelace(10_000_000),
+        value: assets.from_lovelace(10_000_000),
         datum: NoDatum,
         reference_script: None,
       },
       Output {
         address: payee_address,
-        value: value.from_lovelace(3_000_000),
+        value: assets.from_lovelace(3_000_000),
         datum: NoDatum,
         reference_script: None,
       },
@@ -326,29 +320,29 @@ test is_right_amount_sent_to_payee_fail_different_value() {
   !is_right_amount_sent_to_payee(
     payee_address,
     outputs,
-    value.from_lovelace(10_000_000),
+    assets.from_lovelace(10_000_000),
   )
 }
 
 // Testing Configuration
 test load_configuration_fail_no_ref_inputs() fail {
-  let transaction: Transaction = transaction.placeholder()
+  let transaction: Transaction = placeholder
   let configuration = load_configuration(transaction)
   configuration == configuration
 }
 
 test load_configuration_fail_missing_configuration_ref_input() fail {
-  let address = payment_pkh_1 |> credential.from_verification_key
+  let address = payment_pkh_1 |> address.from_verification_key
 
   let transaction =
     Transaction {
-      ..transaction.placeholder(),
+      ..placeholder,
       reference_inputs: [
         Input(
-          OutputReference(TransactionId(#""), 0),
+          OutputReference("", 0),
           Output {
             address,
-            value: value.from_lovelace(10_000_000),
+            value: assets.from_lovelace(10_000_000),
             datum: NoDatum,
             reference_script: None,
           },
@@ -361,27 +355,27 @@ test load_configuration_fail_missing_configuration_ref_input() fail {
 }
 
 test load_configuration_fail_no_datum() fail {
-  let address = payment_pkh_1 |> credential.from_verification_key
+  let address = payment_pkh_1 |> address.from_verification_key
 
   let transaction =
     Transaction {
-      ..transaction.placeholder(),
+      ..placeholder,
       reference_inputs: [
         Input(
-          OutputReference(TransactionId(#""), 0),
+          OutputReference(#"", 0),
           Output {
             address,
-            value: value.from_lovelace(10_000_000),
+            value: assets.from_lovelace(10_000_000),
             datum: NoDatum,
             reference_script: None,
           },
         ),
         Input(
-          OutputReference(TransactionId(#""), 0),
+          OutputReference(#"", 0),
           Output {
             address,
-            value: value.from_lovelace(10_000_000)
-              |> add(configuration_nft, configuration_nft, 1),
+            value: assets.from_lovelace(10_000_000)
+              |> assets.add(configuration_nft, configuration_nft, 1),
             datum: NoDatum,
             reference_script: None,
           },
@@ -394,27 +388,27 @@ test load_configuration_fail_no_datum() fail {
 }
 
 test load_configuration_succeed() {
-  let address = payment_pkh_1 |> credential.from_verification_key
+  let address = payment_pkh_1 |> address.from_verification_key
   let expected_configuration = Configuration(bot_payment_pkh, 1_000_000)
   let transaction =
     Transaction {
-      ..transaction.placeholder(),
+      ..placeholder,
       reference_inputs: [
         Input(
-          OutputReference(TransactionId(#""), 0),
+          OutputReference(#"", 0),
           Output {
             address,
-            value: value.from_lovelace(10_000_000),
+            value: assets.from_lovelace(10_000_000),
             datum: NoDatum,
             reference_script: None,
           },
         ),
         Input(
-          OutputReference(TransactionId(#""), 0),
+          OutputReference(#"", 0),
           Output {
             address,
-            value: value.from_lovelace(10_000_000)
-              |> add(configuration_nft, configuration_nft, 1),
+            value: assets.from_lovelace(10_000_000)
+              |> assets.add(configuration_nft, configuration_nft, 1),
             datum: InlineDatum(expected_configuration),
             reference_script: None,
           },
