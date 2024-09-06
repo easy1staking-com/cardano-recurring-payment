@@ -41,8 +41,9 @@ pub type PaymentFrenquency {
   Yearly
 }
 
-pub type Configuration {
+pub type Settings {
   // BOT Payment PKH
+  setting_admin_pkh: Hash<Blake2b_224, VerificationKey>,
   bot_payment_pkh: Hash<Blake2b_224, VerificationKey>,
   bot_fee_lovelace: Int,
 }

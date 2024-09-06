@@ -11,7 +11,7 @@ use automatic_payments.{
 }
 use tests/fixtures.{datum_template}
 use types/automatic_payments.{
-  Configuration, Daily, Datum, Days, Hourly, Weeks, Withdraw,
+  Daily, Datum, Days, Hourly, Settings, Weeks, Withdraw,
 } as automatic_payments_types
 
 const payment_pkh = #"4f0f62955aaac98d8ffc1d26279cfafc9cbf46f44225e269bbe29560"
@@ -335,7 +335,7 @@ test is_right_amount_sent_to_payee_fail_different_value() {
   )
 }
 
-// Testing Configuration
+// Testing Settings
 test load_configuration_fail_no_ref_inputs() fail {
   let transaction: Transaction = transaction.placeholder()
   let configuration = load_configuration(transaction)
@@ -400,7 +400,8 @@ test load_configuration_fail_no_datum() fail {
 
 test load_configuration_succeed() {
   let address = payment_pkh_1 |> credential.from_verification_key
-  let expected_configuration = Configuration(bot_payment_pkh, 1_000_000)
+  let expected_configuration =
+    Settings(bot_payment_pkh, bot_payment_pkh, 1_000_000)
   let transaction =
     Transaction {
       ..transaction.placeholder(),

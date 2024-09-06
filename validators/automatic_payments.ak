@@ -7,8 +7,8 @@ use aiken/transaction.{
 use aiken/transaction/credential.{Address, ScriptCredential}
 use aiken/transaction/value.{Value, add}
 use types/automatic_payments.{
-  Configuration, Daily, Datum, Days, ExecutePayment, Hourly, Hours,
-  PaymentFrenquency, Redeemer, Weekly, Weeks, Withdraw, Yearly,
+  Daily, Datum, Days, ExecutePayment, Hourly, Hours, PaymentFrenquency, Redeemer,
+  Settings, Weekly, Weeks, Withdraw, Yearly,
 } as automatic_payments_types
 
 // This will be replace with the policy ID of an NFT at a later stage
@@ -106,7 +106,7 @@ pub fn compute_new_start_time(
   }
 }
 
-pub fn load_configuration(transaction: Transaction) -> Configuration {
+pub fn load_configuration(transaction: Transaction) -> Settings {
   expect Some(configuration_input) =
     transaction.reference_inputs
       |> list.find(
@@ -117,7 +117,7 @@ pub fn load_configuration(transaction: Transaction) -> Configuration {
           },
         )
   expect InlineDatum(datum) = configuration_input.output.datum
-  expect configuration: Configuration = datum
+  expect configuration: Settings = datum
   configuration
 }
 
