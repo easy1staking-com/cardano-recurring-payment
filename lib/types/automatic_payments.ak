@@ -1,7 +1,5 @@
-use aiken/hash.{Blake2b_224, Hash}
-use aiken/time.{PosixTime}
-use aiken/transaction/credential.{VerificationKey}
-use aiken/transaction/value.{AssetName, PolicyId}
+use aiken/crypto.{Blake2b_224, Hash, VerificationKey}
+use cardano/assets.{AssetName, PolicyId}
 
 pub type Datum {
   /// The funds owner 
@@ -15,9 +13,9 @@ pub type Datum {
   /// Destination address Staking pub key (optional)
   payee_stake_pkh: Option<Hash<Blake2b_224, VerificationKey>>,
   /// Starting Date Time. Namely time of the first payment should be made
-  start_time: PosixTime,
+  start_time: Int,
   /// If specified, no more payments must be made after end date. This can be used to determine how many payments to make (start_time + (N + 1) * payment_frequency)
-  end_time: Option<PosixTime>,
+  end_time: Option<Int>,
   /// How often to perform a payment
   payment_frenquency: PaymentFrenquency,
   /// Maximum delay to perform payment within a period. Expressed in hours.

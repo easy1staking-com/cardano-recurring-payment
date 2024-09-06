@@ -1,11 +1,11 @@
+use aiken/collection/list
 use aiken/interval.{Finite, Interval, IntervalBound}
-use aiken/list
-use aiken/time.{PosixTime}
-use aiken/transaction.{
-  InlineDatum, Output, ScriptContext, Spend, Transaction, ValidityRange,
+use cardano/address.{Address, PaymentCredential, Script}
+use cardano/assets.{Value, merge, zero}
+use cardano/script_context.{ScriptContext}
+use cardano/transaction.{
+  InlineDatum, Output, OutputReference, Transaction, ValidityRange,
 }
-use aiken/transaction/credential.{Address, ScriptCredential}
-use aiken/transaction/value.{Value, add}
 use types/automatic_payments.{
   Configuration, Daily, Datum, Days, ExecutePayment, Hourly, Hours,
   PaymentFrenquency, Redeemer, Weekly, Weeks, Withdraw, Yearly,
@@ -59,11 +59,7 @@ pub fn is_right_amount_sent_to_payee(
   let payee_outputs = list.filter(outputs, fn(o) { o.address == payee_address })
   // Caluculate total value sent to payee
   let value_sent_to_payee =
-    list.foldl(
-      payee_outputs,
-      value.zero(),
-      fn(n, acc) { value.merge(n.value, acc) },
-    )
+    list.foldl(payee_outputs, zero, fn(n, acc) { merge(n.value, acc) })
   value_sent_to_payee == value_to_send
 }
 
@@ -88,10 +84,10 @@ fn to_millis(payment_frenquency: PaymentFrenquency) -> Int {
 }
 
 pub fn compute_new_start_time(
-  start_time: PosixTime,
+  start_time: Int,
   payment_frequency: PaymentFrenquency,
   validity_range: ValidityRange,
-) -> PosixTime {
+) -> Int {
   expect Finite(lower_bound) = validity_range.lower_bound.bound_type
   let k = ( lower_bound - start_time ) / to_millis(payment_frequency) + 1
 
@@ -112,7 +108,7 @@ pub fn load_configuration(transaction: Transaction) -> Configuration {
       |> list.find(
           fn(input) {
             input.output.value
-              |> value.flatten()
+              |> assets.flatten()
               |> list.any(fn(asset) { asset.1st == configuration_nft })
           },
         )
@@ -121,76 +117,70 @@ pub fn load_configuration(transaction: Transaction) -> Configuration {
   configuration
 }
 
-validator {
-  pub fn automatic_payments(
-    datum: Datum,
+validator automatic_payments {
+  spend(
+    datum: Option<Datum>,
     redeemer: Redeemer,
-    context: ScriptContext,
-  ) -> Bool {
+    own_ref: OutputReference,
+    self: Transaction,
+  ) {
     when redeemer is {
       Withdraw -> {
         trace @"Withdraw"
+        expect Some(data) = datum
         let must_be_signed_by_owner =
-          list.has(
-            context.transaction.extra_signatories,
-            datum.owner_payment_pkh,
-          )
+          list.has(self.extra_signatories, data.owner_payment_pkh)
         must_be_signed_by_owner
       }
       ExecutePayment -> {
         trace @"ExecutePayment"
 
-        // Common part
-        let ScriptContext { transaction, purpose } = context
-        expect Spend(locked_input_reference) = purpose
-
+        expect Some(data) = datum
+        // ScriptContext { transaction: Transaction, redeemer: Redeemer, info: ScriptInfo }
         // Find the input locked by the script
         let locked_input_opt =
-          list.find(
-            transaction.inputs,
-            fn(x) { locked_input_reference == x.output_reference },
-          )
+          list.find(self.inputs, fn(x) { x.output_reference == own_ref })
         expect Some(locked_input) = locked_input_opt
-        let Transaction { outputs, .. } = transaction
+        let Transaction { outputs, .. } = self
 
         // Value is an opaque type, so build it here from the list of tokens in the datum.
         let value_to_send =
           list.foldl(
-            datum.amount_to_send,
-            value.zero(),
-            fn(n, acc) { acc |> add(n.1st, n.2nd, n.3rd) },
+            data.amount_to_send,
+            zero,
+            fn(n, acc) { acc |> assets.add(n.1st, n.2nd, n.3rd) },
           )
 
         // Read configuration from ref input
-        let configuration = load_configuration(transaction)
+        let configuration = load_configuration(self)
 
         // Checking Timing is right
         let is_tx_time_valid =
-          datum |> is_payment_time_valid(context.transaction.validity_range)
+          data |> is_payment_time_valid(self.validity_range)
 
         // Check right amount is sent to payee
         let payee_address =
-          when datum.payee_stake_pkh is {
+          when data.payee_stake_pkh is {
             Some(stake_pkh) ->
-              datum.payee_payment_pkh
-                |> credential.from_verification_key
-                |> credential.with_delegation_key(stake_pkh)
-            None -> credential.from_verification_key(datum.payee_payment_pkh)
+              data.payee_payment_pkh
+                |> address.from_verification_key
+                |> address.with_delegation_key(stake_pkh)
+            None -> address.from_verification_key(data.payee_payment_pkh)
           }
         let must_pay_payee =
           is_right_amount_sent_to_payee(payee_address, outputs, value_to_send)
 
         // Check right amount is returned to the script, if stake address is specified, the address must be a mingled or franken address.
-        expect ScriptCredential(script_hash) =
+        expect Script(script_hash) =
           locked_input.output.address.payment_credential
 
         let script_address =
-          when datum.owner_stake_pkh is {
+          when data.owner_stake_pkh is {
             Some(stake_pkh) ->
               script_hash
-                |> credential.from_verification_key
-                |> credential.with_delegation_key(stake_pkh)
-            None -> credential.from_verification_key(script_hash)
+                |> address.from_verification_key
+                |> address.with_delegation_key(stake_pkh)
+            None -> address.from_verification_key(script_hash)
           }
 
         expect [script_output] =
@@ -198,19 +188,19 @@ validator {
 
         // check max fee
         let is_bot_fee_ok =
-          datum.max_fees_lovelace >= configuration.bot_fee_lovelace
+          data.max_fees_lovelace >= configuration.bot_fee_lovelace
 
         // Calculated the amount spent by the sender:
         // 1. bot operator fees
         // 2. transaction fee
         // 3. payment amount
         let spent_amount =
-          value.from_lovelace(configuration.bot_fee_lovelace)
-            |> value.merge(value_to_send)
-            |> value.merge(transaction.fee)
-            |> value.negate
+          assets.from_lovelace(configuration.bot_fee_lovelace)
+            |> assets.merge(value_to_send)
+            |> assets.merge(assets.from_lovelace(self.fee))
+            |> assets.negate
         let is_amount_sent_back_to_script_correct =
-          script_output.value == value.merge(
+          script_output.value == assets.merge(
             locked_input.output.value,
             spent_amount,
           )
@@ -218,11 +208,11 @@ validator {
         // Check new datum is created
         let expected_datum =
           Datum {
-            ..datum,
+            ..data,
             start_time: compute_new_start_time(
-              datum.start_time,
-              datum.payment_frenquency,
-              transaction.validity_range,
+              data.start_time,
+              data.payment_frenquency,
+              self.validity_range,
             ),
           }
         expect InlineDatum(data) = script_output.datum
@@ -231,13 +221,14 @@ validator {
 
         // Must be signed by the bot
         let must_be_signed_by_bot =
-          list.has(
-            context.transaction.extra_signatories,
-            configuration.bot_payment_pkh,
-          )
+          list.has(self.extra_signatories, configuration.bot_payment_pkh)
 
         must_pay_payee? && must_be_signed_by_bot? && is_amount_sent_back_to_script_correct? && is_valid_datum? && is_tx_time_valid? && is_bot_fee_ok?
       }
     }
+  }
+
+  else(_) {
+    fail
   }
 }

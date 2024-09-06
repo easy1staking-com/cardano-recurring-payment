@@ -1,14 +1,9 @@
 use aiken/interval.{after, between}
-use aiken/transaction.{
-  InlineDatum, Input, NoDatum, Output, OutputReference, ScriptContext, Spend,
-  Transaction, TransactionId,
-}
-use aiken/transaction/credential.{Address, VerificationKeyCredential}
-use aiken/transaction/value.{add}
 use automatic_payments.{
   automatic_payments, compute_new_start_time, configuration_nft,
   is_payment_time_valid, is_right_amount_sent_to_payee, load_configuration,
 }
+use cardano/assets.{Value, merge, zero}
 use tests/fixtures.{datum_template}
 use types/automatic_payments.{
   Configuration, Daily, Datum, Days, Hourly, Weeks, Withdraw,
