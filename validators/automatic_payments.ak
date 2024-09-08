@@ -5,15 +5,11 @@ use aiken/transaction.{
   InlineDatum, Output, ScriptContext, Spend, Transaction, ValidityRange,
 }
 use aiken/transaction/credential.{Address, ScriptCredential}
-use aiken/transaction/value.{Value, add}
+use aiken/transaction/value.{PolicyId, Value, add}
 use types/automatic_payments.{
   Daily, Datum, Days, ExecutePayment, Hourly, Hours, PaymentFrenquency, Redeemer,
   Settings, Weekly, Weeks, Withdraw, Yearly,
 } as automatic_payments_types
-
-// This will be replace with the policy ID of an NFT at a later stage
-pub const configuration_nft =
-  #"00000000000000000000000000000000000000000000000000000000"
 
 // Sending funds must happen after a certain moment in time has passed, but also,
 // if defined, a maximum delay has not passed.
@@ -106,14 +102,17 @@ pub fn compute_new_start_time(
   }
 }
 
-pub fn load_configuration(transaction: Transaction) -> Settings {
+pub fn load_configuration(
+  transaction: Transaction,
+  settings_policy_id: PolicyId,
+) -> Settings {
   expect Some(configuration_input) =
     transaction.reference_inputs
       |> list.find(
           fn(input) {
             input.output.value
               |> value.flatten()
-              |> list.any(fn(asset) { asset.1st == configuration_nft })
+              |> list.any(fn(asset) { asset.1st == settings_policy_id })
           },
         )
   expect InlineDatum(datum) = configuration_input.output.datum
@@ -121,7 +120,7 @@ pub fn load_configuration(transaction: Transaction) -> Settings {
   configuration
 }
 
-validator {
+validator(settings_policy_id: PolicyId) {
   pub fn automatic_payments(
     datum: Datum,
     redeemer: Redeemer,
@@ -162,7 +161,7 @@ validator {
           )
 
         // Read configuration from ref input
-        let configuration = load_configuration(transaction)
+        let configuration = load_configuration(transaction, settings_policy_id)
 
         // Checking Timing is right
         let is_tx_time_valid =

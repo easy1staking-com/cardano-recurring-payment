@@ -6,8 +6,8 @@ use aiken/transaction.{
 use aiken/transaction/credential.{Address, VerificationKeyCredential}
 use aiken/transaction/value.{add}
 use automatic_payments.{
-  automatic_payments, compute_new_start_time, configuration_nft,
-  is_payment_time_valid, is_right_amount_sent_to_payee, load_configuration,
+  automatic_payments, compute_new_start_time, is_payment_time_valid,
+  is_right_amount_sent_to_payee, load_configuration,
 }
 use tests/fixtures.{datum_template}
 use types/automatic_payments.{
@@ -49,7 +49,12 @@ test automatic_payments_succeed_withdraw() {
       ),
       transaction,
     }
-  automatic_payments(datum, Withdraw, context)
+  automatic_payments(
+    #"00000000000000000000000000000000000000000000000000000000",
+    datum,
+    Withdraw,
+    context,
+  )
 }
 
 test automatic_payments_fail_withdraw() {
@@ -71,7 +76,12 @@ test automatic_payments_fail_withdraw() {
       ),
       transaction,
     }
-  !automatic_payments(datum, Withdraw, context)
+  !automatic_payments(
+    #"00000000000000000000000000000000000000000000000000000000",
+    datum,
+    Withdraw,
+    context,
+  )
 }
 
 // Validity time/interval tests
@@ -338,7 +348,11 @@ test is_right_amount_sent_to_payee_fail_different_value() {
 // Testing Settings
 test load_configuration_fail_no_ref_inputs() fail {
   let transaction: Transaction = transaction.placeholder()
-  let configuration = load_configuration(transaction)
+  let configuration =
+    load_configuration(
+      transaction,
+      #"00000000000000000000000000000000000000000000000000000000",
+    )
   configuration == configuration
 }
 
@@ -361,7 +375,11 @@ test load_configuration_fail_missing_configuration_ref_input() fail {
       ],
     }
 
-  let configuration = load_configuration(transaction)
+  let configuration =
+    load_configuration(
+      transaction,
+      #"00000000000000000000000000000000000000000000000000000000",
+    )
   configuration == configuration
 }
 
@@ -386,7 +404,11 @@ test load_configuration_fail_no_datum() fail {
           Output {
             address,
             value: value.from_lovelace(10_000_000)
-              |> add(configuration_nft, configuration_nft, 1),
+              |> add(
+                  #"00000000000000000000000000000000000000000000000000000000",
+                  "settings",
+                  1,
+                ),
             datum: NoDatum,
             reference_script: None,
           },
@@ -394,7 +416,11 @@ test load_configuration_fail_no_datum() fail {
       ],
     }
 
-  let configuration = load_configuration(transaction)
+  let configuration =
+    load_configuration(
+      transaction,
+      #"00000000000000000000000000000000000000000000000000000000",
+    )
   configuration == configuration
 }
 
@@ -420,7 +446,11 @@ test load_configuration_succeed() {
           Output {
             address,
             value: value.from_lovelace(10_000_000)
-              |> add(configuration_nft, configuration_nft, 1),
+              |> add(
+                  #"00000000000000000000000000000000000000000000000000000000",
+                  "settings",
+                  1,
+                ),
             datum: InlineDatum(expected_configuration),
             reference_script: None,
           },
@@ -428,6 +458,10 @@ test load_configuration_succeed() {
       ],
     }
 
-  let actual_configuration = load_configuration(transaction)
+  let actual_configuration =
+    load_configuration(
+      transaction,
+      #"00000000000000000000000000000000000000000000000000000000",
+    )
   actual_configuration == expected_configuration
 }
