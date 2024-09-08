@@ -7,14 +7,11 @@ const tx_hash_id =
 
 const output_index = 0
 
-test load_configuration_succeed() {
-  trace @"Hello"
+test serialise_bootstrap_utxo() {
   let output_reference =
     OutputReference(TransactionId(tx_hash_id), output_index)
-  trace @"World"
   let output_reference_cbor = cbor.serialise(output_reference)
-  trace @"Foo"
-  let bla = bytearray.to_hex(output_reference_cbor)
-  trace bla
+  let serialised_bootstrap_utxo = bytearray.to_hex(output_reference_cbor)
+  trace serialised_bootstrap_utxo
   True
 }

@@ -1,10 +1,12 @@
+use aiken/bytearray
+use aiken/cbor
 use aiken/interval.{after, between}
 use aiken/transaction.{
   InlineDatum, Input, NoDatum, Output, OutputReference, ScriptContext, Spend,
   Transaction, TransactionId,
 }
 use aiken/transaction/credential.{Address, VerificationKeyCredential}
-use aiken/transaction/value.{add}
+use aiken/transaction/value.{PolicyId, add}
 use automatic_payments.{
   automatic_payments, compute_new_start_time, is_payment_time_valid,
   is_right_amount_sent_to_payee, load_configuration,
@@ -464,4 +466,13 @@ test load_configuration_succeed() {
       #"00000000000000000000000000000000000000000000000000000000",
     )
   actual_configuration == expected_configuration
+}
+
+test serialise_settings_policy_id() {
+  let settings_policy_id: PolicyId =
+    #"b29a6ffd079d50bb4b130bc76a0a13e10eeceb67328bb3e5e46c4eaa"
+  let policy_id_cbor = cbor.serialise(settings_policy_id)
+  let serialised_settings_policy_id = bytearray.to_hex(policy_id_cbor)
+  trace serialised_settings_policy_id
+  True
 }
