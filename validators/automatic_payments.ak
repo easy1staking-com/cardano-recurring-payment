@@ -128,7 +128,6 @@ validator(settings_policy_id: PolicyId) {
   ) -> Bool {
     when redeemer is {
       Withdraw -> {
-        trace @"Withdraw"
         let must_be_signed_by_owner =
           list.has(
             context.transaction.extra_signatories,
@@ -137,8 +136,6 @@ validator(settings_policy_id: PolicyId) {
         must_be_signed_by_owner
       }
       ExecutePayment -> {
-        trace @"ExecutePayment"
-
         // Common part
         let ScriptContext { transaction, purpose } = context
         expect Spend(locked_input_reference) = purpose
@@ -187,7 +184,7 @@ validator(settings_policy_id: PolicyId) {
           when datum.owner_stake_pkh is {
             Some(stake_pkh) ->
               script_hash
-                |> credential.from_verification_key
+                |> credential.from_script
                 |> credential.with_delegation_key(stake_pkh)
             None -> credential.from_verification_key(script_hash)
           }
@@ -206,8 +203,8 @@ validator(settings_policy_id: PolicyId) {
         let spent_amount =
           value.from_lovelace(configuration.bot_fee_lovelace)
             |> value.merge(value_to_send)
-            |> value.merge(transaction.fee)
             |> value.negate
+
         let is_amount_sent_back_to_script_correct =
           script_output.value == value.merge(
             locked_input.output.value,
@@ -235,7 +232,14 @@ validator(settings_policy_id: PolicyId) {
             configuration.bot_payment_pkh,
           )
 
-        must_pay_payee? && must_be_signed_by_bot? && is_amount_sent_back_to_script_correct? && is_valid_datum? && is_tx_time_valid? && is_bot_fee_ok?
+        and {
+          must_pay_payee?,
+          must_be_signed_by_bot?,
+          is_amount_sent_back_to_script_correct?,
+          is_tx_time_valid?,
+          is_bot_fee_ok?,
+          is_valid_datum?,
+        }
       }
     }
   }

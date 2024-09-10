@@ -64,18 +64,14 @@ validator(protocol_boot_utxo: OutputReference) {
 
   // Let us mint the settings NFT exactly once, by checking that one of the inputs is the protocol_boot_utxo
   pub fn mint(_r: Data, ctx: ScriptContext) {
-    trace @"Minttt"
     expect Mint(own_policy_id) = ctx.purpose
 
-    trace @"expected_mint"
     let expected_mint = value.from_asset(own_policy_id, settings_nft_name, 1)
     // Check that we mint *only* one token, and it's exactly our own policy id, and the settings NFT name
     // This ensures that we don't sneakily mint a second NFT for "reasons"
-    trace @"mints_exactly_one_settings_nft"
     let mints_exactly_one_settings_nft =
       value.from_minted_value(ctx.transaction.mint) == expected_mint
 
-    trace @"spends_protocol_boot_utxo"
     // And, like mentioned above, ensure that this is a true NFT
     let spends_protocol_boot_utxo =
       list.any(
@@ -83,7 +79,6 @@ validator(protocol_boot_utxo: OutputReference) {
         fn(input) { input.output_reference == protocol_boot_utxo },
       )
 
-    trace @"settings_output"
     // Make sure the output value contains no extra tokens, and is paid to the settings script itself
     expect [settings_output] =
       list.filter(
@@ -91,15 +86,12 @@ validator(protocol_boot_utxo: OutputReference) {
         fn(output) { value.without_lovelace(output.value) == expected_mint },
       )
 
-    trace @"pays_to_settings_script"
     let pays_to_settings_script =
       settings_output.address.payment_credential == ScriptCredential(
         own_policy_id,
       )
-    trace @"InlineDatum"
     // Make sure the datum is an inline datum, and has a well-formed datum
     expect InlineDatum(settings_datum) = settings_output.datum
-    trace @"Settings"
     expect _: Settings = settings_datum
 
     // TODO: require a signature from the 3 initial admins (or at least the settings admin) to prevent bricking?
