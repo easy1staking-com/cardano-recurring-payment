@@ -32,4 +32,25 @@ unlock the funds and:
 3. the new contract's datum must be identical to the previous except the `start_date` that will be incremented by the `payment_frenquency` value in seconds.
 
 ## Known issues:
- 
+
+* Double Satisfaction (working already on solving it with either withdraw 0 or output index)
+
+## Current Features
+
+* Send any combination of ada or native assets
+* Payment frequency: hours, days, epoch, weeks, yearly. Month not available because no calendar feature is available in plutus
+* Funds to be used for automated payments, are still staked
+* User can withdraw their funds at any given time
+* User can specify exact time window to perform payment
+* User specify max fee they want to pay per tx. This is necessary to prevent protocol to update fee to a value too high for customers
+* Along with the time of the first payment, user can specify an end date. Combination of frequency and end date will allow to
+excute exactly X payments
+* Although it's not guaranteed that the payment is executed exactly on the desired time (it may take a few minutes to be processed), 
+the next payment is scheduled based on the desired time + delay. Eg, if a payment is sceduled to be exectuded at 8am daily, but gets executed
+at 8:05, the next day it will still be scheduled for 8am, and not 1 day after the execution time.
+* It it possible to pay to both enterprise or staking address
+
+### Additional Features
+
+* [ ] Add a list of PKH in settings datum which don't pay fees (use index in redeemer to avoid loop)
+* [ ] Pay to a contract (will require support for script credentials and datum)
