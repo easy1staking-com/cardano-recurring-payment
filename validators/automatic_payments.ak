@@ -224,6 +224,13 @@ validator(settings_policy_id: PolicyId) {
 
         let Transaction { inputs, outputs, .. } = tx
 
+        // Filtering non-scripts inputs out, so to get rid of supporting
+        // wallet utxos used to cover for tx and collect protocol fees in case of 
+        // minutxo < ~1ada
+        // This way we can use just 1 index for input that will be used to calculated
+        // matching outputs. 
+        // Payee outputs will have same index. Returning outputs will have index + num_payments
+        // admin wallet change address will always be last.
         expect Some(Input { output: in_utxo, output_reference: in_ref }) =
           inputs
             |> list.filter(
