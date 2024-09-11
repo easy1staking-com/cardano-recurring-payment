@@ -1,10 +1,12 @@
+use aiken/hash.{Blake2b_224, Hash}
 use aiken/interval.{Finite, Interval, IntervalBound}
 use aiken/list
 use aiken/time.{PosixTime}
 use aiken/transaction.{
-  InlineDatum, Output, ScriptContext, Spend, Transaction, ValidityRange,
+  InlineDatum, Input, Output, OutputReference, ScriptContext, Spend, Transaction,
+  ValidityRange,
 }
-use aiken/transaction/credential.{Address, ScriptCredential}
+use aiken/transaction/credential.{Address, ScriptCredential, VerificationKey}
 use aiken/transaction/value.{PolicyId, Value, add}
 use types/automatic_payments.{
   Daily, Datum, Days, ExecutePayment, Hourly, Hours, PaymentFrenquency, Redeemer,
@@ -120,14 +122,110 @@ pub fn load_configuration(
   configuration
 }
 
+pub fn run_validation(
+  locked_input: Output,
+  payee_output: Output,
+  returning_output: Output,
+  validity_range: ValidityRange,
+  extra_signatories: List<Hash<Blake2b_224, VerificationKey>>,
+  settings: Settings,
+) -> Bool {
+  expect InlineDatum(data) = locked_input.datum
+  expect datum: Datum = data
+
+  // Check right amount is sent to payee
+  let payee_address =
+    when datum.payee_stake_pkh is {
+      Some(stake_pkh) ->
+        datum.payee_payment_pkh
+          |> credential.from_verification_key
+          |> credential.with_delegation_key(stake_pkh)
+      None -> credential.from_verification_key(datum.payee_payment_pkh)
+    }
+  let is_payee_output_correct = payee_output.address == payee_address
+
+  // Check right amount is returned to the script, if stake address is specified, the address must be a mingled or franken address.
+  expect ScriptCredential(script_hash) = locked_input.address.payment_credential
+  let script_address =
+    when datum.owner_stake_pkh is {
+      Some(stake_pkh) ->
+        script_hash
+          |> credential.from_script
+          |> credential.with_delegation_key(stake_pkh)
+      None -> credential.from_verification_key(script_hash)
+    }
+  let is_returning_output_correct = returning_output.address == script_address
+  // expect [script_output] =
+  // list.filter(outputs, fn(o) { o.address == script_address })
+  // Value is an opaque type, so build it here from the list of tokens in the datum.
+  let value_to_send =
+    list.foldl(
+      datum.amount_to_send,
+      value.zero(),
+      fn(n, acc) { acc |> add(n.1st, n.2nd, n.3rd) },
+    )
+
+  // Read configuration from ref input
+  // let configuration = load_configuration(transaction, settings_policy_id)
+  // Checking Timing is right
+  let is_tx_time_valid = datum |> is_payment_time_valid(validity_range)
+
+  let must_pay_payee = payee_output.value == value_to_send
+
+  // check max fee
+  let is_bot_fee_ok = datum.max_fees_lovelace >= settings.bot_fee_lovelace
+
+  // Calculated the amount spent by the sender:
+  // 1. bot operator fees
+  // 2. transaction fee
+  // 3. payment amount
+  let spent_amount =
+    value.from_lovelace(settings.bot_fee_lovelace)
+      |> value.merge(value_to_send)
+      |> value.negate
+
+  let is_amount_sent_back_to_script_correct =
+    returning_output.value == value.merge(locked_input.value, spent_amount)
+
+  // Check new datum is created
+  let expected_datum =
+    Datum {
+      ..datum,
+      start_time: compute_new_start_time(
+        datum.start_time,
+        datum.payment_frenquency,
+        validity_range,
+      ),
+    }
+  expect InlineDatum(data) = returning_output.datum
+  expect actual_datum: Datum = data
+  let is_valid_datum = expected_datum == actual_datum
+
+  // Must be signed by the bot
+  let must_be_signed_by_bot =
+    list.has(extra_signatories, settings.bot_payment_pkh)
+
+  and {
+    is_payee_output_correct?,
+    must_pay_payee?,
+    must_be_signed_by_bot?,
+    is_returning_output_correct?,
+    is_amount_sent_back_to_script_correct?,
+    is_tx_time_valid?,
+    is_bot_fee_ok?,
+    is_valid_datum?,
+  }
+}
+
 validator(settings_policy_id: PolicyId) {
   pub fn automatic_payments(
-    datum: Datum,
+    data: Data,
     redeemer: Redeemer,
     context: ScriptContext,
   ) -> Bool {
     when redeemer is {
       Withdraw -> {
+        expect datum: Datum = data
         let must_be_signed_by_owner =
           list.has(
             context.transaction.extra_signatories,
@@ -135,111 +233,36 @@ validator(settings_policy_id: PolicyId) {
           )
         must_be_signed_by_owner
       }
-      ExecutePayment -> {
-        // Common part
-        let ScriptContext { transaction, purpose } = context
-        expect Spend(locked_input_reference) = purpose
+      ExecutePayment { in_index, out_index, returning_out_index } -> {
+        expect ScriptContext { transaction: tx, purpose: Spend(own_ref) } =
+          context
 
-        // Find the input locked by the script
-        let locked_input_opt =
-          list.find(
-            transaction.inputs,
-            fn(x) { locked_input_reference == x.output_reference },
-          )
-        expect Some(locked_input) = locked_input_opt
-        let Transaction { outputs, .. } = transaction
+        let Transaction { inputs, outputs, .. } = tx
 
-        // Value is an opaque type, so build it here from the list of tokens in the datum.
-        let value_to_send =
-          list.foldl(
-            datum.amount_to_send,
-            value.zero(),
-            fn(n, acc) { acc |> add(n.1st, n.2nd, n.3rd) },
-          )
+        expect Some(Input { output: in_utxo, output_reference: in_ref }) =
+          inputs |> list.at(in_index)
+
+        expect Some(out_utxo) = outputs |> list.at(out_index)
+        expect Some(returning_output) = outputs |> list.at(returning_out_index)
+
+        // Indicated input must match the spending one.
+        expect (own_ref == in_ref)?
+
+        // This one line shuold prevent double satisfaction
+        expect InlineDatum(in_ref_datum) = out_utxo.datum
+        expect actual_in_ref: OutputReference = in_ref_datum
+        expect actual_in_ref == in_ref
 
         // Read configuration from ref input
-        let configuration = load_configuration(transaction, settings_policy_id)
-
-        // Checking Timing is right
-        let is_tx_time_valid =
-          datum |> is_payment_time_valid(context.transaction.validity_range)
-
-        // Check right amount is sent to payee
-        let payee_address =
-          when datum.payee_stake_pkh is {
-            Some(stake_pkh) ->
-              datum.payee_payment_pkh
-                |> credential.from_verification_key
-                |> credential.with_delegation_key(stake_pkh)
-            None -> credential.from_verification_key(datum.payee_payment_pkh)
-          }
-        let must_pay_payee =
-          is_right_amount_sent_to_payee(payee_address, outputs, value_to_send)
-
-        // Check right amount is returned to the script, if stake address is specified, the address must be a mingled or franken address.
-        expect ScriptCredential(script_hash) =
-          locked_input.output.address.payment_credential
-
-        let script_address =
-          when datum.owner_stake_pkh is {
-            Some(stake_pkh) ->
-              script_hash
-                |> credential.from_script
-                |> credential.with_delegation_key(stake_pkh)
-            None -> credential.from_verification_key(script_hash)
-          }
-
-        expect [script_output] =
-          list.filter(outputs, fn(o) { o.address == script_address })
-
-        // check max fee
-        let is_bot_fee_ok =
-          datum.max_fees_lovelace >= configuration.bot_fee_lovelace
-
-        // Calculated the amount spent by the sender:
-        // 1. bot operator fees
-        // 2. transaction fee
-        // 3. payment amount
-        let spent_amount =
-          value.from_lovelace(configuration.bot_fee_lovelace)
-            |> value.merge(value_to_send)
-            |> value.negate
-
-        let is_amount_sent_back_to_script_correct =
-          script_output.value == value.merge(
-            locked_input.output.value,
-            spent_amount,
-          )
-
-        // Check new datum is created
-        let expected_datum =
-          Datum {
-            ..datum,
-            start_time: compute_new_start_time(
-              datum.start_time,
-              datum.payment_frenquency,
-              transaction.validity_range,
-            ),
-          }
-        expect InlineDatum(data) = script_output.datum
-        expect actual_datum: Datum = data
-        let is_valid_datum = expected_datum == actual_datum
-
-        // Must be signed by the bot
-        let must_be_signed_by_bot =
-          list.has(
-            context.transaction.extra_signatories,
-            configuration.bot_payment_pkh,
-          )
-
-        and {
-          must_pay_payee?,
-          must_be_signed_by_bot?,
-          is_amount_sent_back_to_script_correct?,
-          is_tx_time_valid?,
-          is_bot_fee_ok?,
-          is_valid_datum?,
-        }
+        let settings = load_configuration(tx, settings_policy_id)
+        run_validation(
+          in_utxo,
+          out_utxo,
+          returning_output,
+          tx.validity_range,
+          tx.extra_signatories,
+          settings,
+        )
       }
     }
   }
