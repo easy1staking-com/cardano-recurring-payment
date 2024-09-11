@@ -248,7 +248,7 @@ validator(settings_policy_id: PolicyId) {
         // Indicated input must match the spending one.
         expect (own_ref == in_ref)?
 
-        // This one line shuold prevent double satisfaction
+        // This one line should prevent double satisfaction
         expect InlineDatum(in_ref_datum) = out_utxo.datum
         expect actual_in_ref: OutputReference = in_ref_datum
         expect actual_in_ref == in_ref
