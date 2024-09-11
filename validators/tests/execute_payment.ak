@@ -5,11 +5,11 @@ use aiken/transaction.{
   InlineDatum, Input, NoDatum, Output, OutputReference, ScriptContext, Spend,
   Transaction, TransactionId,
 }
-use aiken/transaction/credential.{Address, VerificationKeyCredential}
+use aiken/transaction/credential
 use aiken/transaction/value.{PolicyId, add}
 use automatic_payments.{
   automatic_payments, compute_new_start_time, is_payment_time_valid,
-  is_right_amount_sent_to_payee, load_configuration,
+  load_settings,
 }
 use tests/fixtures.{datum_template}
 use types/automatic_payments.{
@@ -22,9 +22,6 @@ const payment_pkh = #"4f0f62955aaac98d8ffc1d26279cfafc9cbf46f44225e269bbe29560"
 
 const payment_pkh_1 =
   #"869423edf942154f9a965a51a06639a2645f23a67fe849ecbe8762b4"
-
-const payee_payment_pkh =
-  #"16e080770f227c889e005eb648a831e53bb12f9b87da6a925de7399d"
 
 // const payee_staking_pkh =
 //   #"414c2c4e10f6171c57b4fbc6f2fdb10139cd43058092732fcdb3a764"
@@ -234,124 +231,11 @@ test compute_new_start_time_end_time_skip_1h() {
   ) == 1721170989000
 }
 
-test is_right_amount_sent_to_payee_succeed_0_value() {
-  let payee_address =
-    Address {
-      payment_credential: VerificationKeyCredential(payee_payment_pkh),
-      stake_credential: None,
-    }
-  is_right_amount_sent_to_payee(payee_address, [], value.zero())
-}
-
-test is_right_amount_sent_to_payee_succeed_some_value() {
-  let payee_address =
-    Address(VerificationKeyCredential(payee_payment_pkh), None)
-  let other_address = Address(VerificationKeyCredential(payment_pkh_1), None)
-
-  let outputs =
-    [
-      Output {
-        address: payee_address,
-        value: value.from_lovelace(1_000_000),
-        datum: NoDatum,
-        reference_script: None,
-      },
-      Output {
-        address: other_address,
-        value: value.from_lovelace(10_000_000),
-        datum: NoDatum,
-        reference_script: None,
-      },
-      Output {
-        address: payee_address,
-        value: value.from_lovelace(3_000_000),
-        datum: NoDatum,
-        reference_script: None,
-      },
-    ]
-
-  is_right_amount_sent_to_payee(
-    payee_address,
-    outputs,
-    value.from_lovelace(4_000_000),
-  )
-}
-
-test is_right_amount_sent_to_payee_succeed_some_value_and_asset() {
-  let policy = #"a0028f350aaabe0545fdcb56b039bfb08e4bb4d8c4d7c3c7d481c235"
-  let asset = #"484f534b59"
-
-  let payee_address =
-    Address(VerificationKeyCredential(payee_payment_pkh), None)
-  let other_address = Address(VerificationKeyCredential(payment_pkh_1), None)
-
-  let outputs =
-    [
-      Output {
-        address: payee_address,
-        value: value.from_lovelace(1_000_000),
-        datum: NoDatum,
-        reference_script: None,
-      },
-      Output {
-        address: other_address,
-        value: value.from_lovelace(10_000_000),
-        datum: NoDatum,
-        reference_script: None,
-      },
-      Output {
-        address: payee_address,
-        value: value.from_lovelace(3_000_000) |> add(policy, asset, 1_000_000),
-        datum: NoDatum,
-        reference_script: None,
-      },
-    ]
-
-  let expect_value =
-    value.from_lovelace(4_000_000) |> add(policy, asset, 1_000_000)
-
-  is_right_amount_sent_to_payee(payee_address, outputs, expect_value)
-}
-
-test is_right_amount_sent_to_payee_fail_different_value() {
-  let payee_address =
-    Address(VerificationKeyCredential(payee_payment_pkh), None)
-  let other_address = Address(VerificationKeyCredential(payment_pkh_1), None)
-
-  let outputs =
-    [
-      Output {
-        address: payee_address,
-        value: value.from_lovelace(1_000_000),
-        datum: NoDatum,
-        reference_script: None,
-      },
-      Output {
-        address: other_address,
-        value: value.from_lovelace(10_000_000),
-        datum: NoDatum,
-        reference_script: None,
-      },
-      Output {
-        address: payee_address,
-        value: value.from_lovelace(3_000_000),
-        datum: NoDatum,
-        reference_script: None,
-      },
-    ]
-
-  !is_right_amount_sent_to_payee(
-    payee_address,
-    outputs,
-    value.from_lovelace(10_000_000),
-  )
-}
-
 // Testing Settings
 test load_configuration_fail_no_ref_inputs() fail {
   let transaction: Transaction = transaction.placeholder()
   let configuration =
-    load_configuration(
+    load_settings(
       transaction,
       #"00000000000000000000000000000000000000000000000000000000",
     )
@@ -378,7 +262,7 @@ test load_configuration_fail_missing_configuration_ref_input() fail {
     }
 
   let configuration =
-    load_configuration(
+    load_settings(
       transaction,
       #"00000000000000000000000000000000000000000000000000000000",
     )
@@ -419,7 +303,7 @@ test load_configuration_fail_no_datum() fail {
     }
 
   let configuration =
-    load_configuration(
+    load_settings(
       transaction,
       #"00000000000000000000000000000000000000000000000000000000",
     )
@@ -461,7 +345,7 @@ test load_configuration_succeed() {
     }
 
   let actual_configuration =
-    load_configuration(
+    load_settings(
       transaction,
       #"00000000000000000000000000000000000000000000000000000000",
     )

@@ -7,7 +7,7 @@ use aiken/transaction.{
   ValidityRange,
 }
 use aiken/transaction/credential.{Address, ScriptCredential, VerificationKey}
-use aiken/transaction/value.{PolicyId, Value, add}
+use aiken/transaction/value.{PolicyId, add}
 use types/automatic_payments.{
   Daily, Datum, Days, ExecutePayment, Hourly, Hours, PaymentFrenquency, Redeemer,
   Settings, Weekly, Weeks, Withdraw, Yearly,
@@ -49,21 +49,21 @@ pub fn is_payment_time_valid(self: Datum, validity_range: ValidityRange) -> Bool
 }
 
 // Right amonut is sent to payee
-pub fn is_right_amount_sent_to_payee(
-  payee_address: Address,
-  outputs: List<Output>,
-  value_to_send: Value,
-) -> Bool {
-  let payee_outputs = list.filter(outputs, fn(o) { o.address == payee_address })
-  // Caluculate total value sent to payee
-  let value_sent_to_payee =
-    list.foldl(
-      payee_outputs,
-      value.zero(),
-      fn(n, acc) { value.merge(n.value, acc) },
-    )
-  value_sent_to_payee == value_to_send
-}
+// pub fn is_right_amount_sent_to_payee(
+//   payee_address: Address,
+//   outputs: List<Output>,
+//   value_to_send: Value,
+// ) -> Bool {
+//   let payee_outputs = list.filter(outputs, fn(o) { o.address == payee_address })
+//   // Caluculate total value sent to payee
+//   let value_sent_to_payee =
+//     list.foldl(
+//       payee_outputs,
+//       value.zero(),
+//       fn(n, acc) { value.merge(n.value, acc) },
+//     )
+//   value_sent_to_payee == value_to_send
+// }
 
 fn hours_to_millis(hours: Int) {
   hours * 60 * 60 * 1_000
@@ -104,7 +104,7 @@ pub fn compute_new_start_time(
   }
 }
 
-pub fn load_configuration(
+pub fn load_settings(
   transaction: Transaction,
   settings_policy_id: PolicyId,
 ) -> Settings {
@@ -155,8 +155,6 @@ pub fn run_validation(
       None -> credential.from_verification_key(script_hash)
     }
   let is_returning_output_correct = returning_output.address == script_address
-  // expect [script_output] =
-  // list.filter(outputs, fn(o) { o.address == script_address })
   // Value is an opaque type, so build it here from the list of tokens in the datum.
   let value_to_send =
     list.foldl(
@@ -165,8 +163,6 @@ pub fn run_validation(
       fn(n, acc) { acc |> add(n.1st, n.2nd, n.3rd) },
     )
 
-  // Read configuration from ref input
-  // let configuration = load_configuration(transaction, settings_policy_id)
   // Checking Timing is right
   let is_tx_time_valid = datum |> is_payment_time_valid(validity_range)
 
@@ -254,7 +250,7 @@ validator(settings_policy_id: PolicyId) {
         expect actual_in_ref == in_ref
 
         // Read configuration from ref input
-        let settings = load_configuration(tx, settings_policy_id)
+        let settings = load_settings(tx, settings_policy_id)
         run_validation(
           in_utxo,
           out_utxo,
