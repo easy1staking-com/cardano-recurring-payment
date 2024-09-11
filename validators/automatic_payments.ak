@@ -218,7 +218,7 @@ validator(settings_policy_id: PolicyId) {
           )
         must_be_signed_by_owner
       }
-      ExecutePayment { in_index } -> {
+      ExecutePayment { in_index, num_batch_payments } -> {
         expect ScriptContext { transaction: tx, purpose: Spend(own_ref) } =
           context
 
@@ -230,9 +230,8 @@ validator(settings_policy_id: PolicyId) {
         // Input to Outputs pairing + Double Satisfaction Prevention
         // Instead of pairing inputs and outputs (where manually setting outputs indexes could lead to double satisfaction)
         // Here only inputs indexes are set, matched against the spend output ref, and outputs are expected to be in a determined position
-        let out_index = in_index / 2
-        let returning_out_index = in_index / 2 + 1
-        expect Some(out_utxo) = outputs |> list.at(out_index)
+        let returning_out_index = in_index + num_batch_payments + 1
+        expect Some(out_utxo) = outputs |> list.at(in_index)
         expect Some(returning_output) = outputs |> list.at(returning_out_index)
 
         // Indicated input must match the spending one.
