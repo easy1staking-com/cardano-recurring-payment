@@ -48,23 +48,6 @@ pub fn is_payment_time_valid(self: Datum, validity_range: ValidityRange) -> Bool
   is_start_time_valid? && is_end_time_valid? && is_payment_deadline_valid?
 }
 
-// Right amonut is sent to payee
-// pub fn is_right_amount_sent_to_payee(
-//   payee_address: Address,
-//   outputs: List<Output>,
-//   value_to_send: Value,
-// ) -> Bool {
-//   let payee_outputs = list.filter(outputs, fn(o) { o.address == payee_address })
-//   // Caluculate total value sent to payee
-//   let value_sent_to_payee =
-//     list.foldl(
-//       payee_outputs,
-//       value.zero(),
-//       fn(n, acc) { value.merge(n.value, acc) },
-//     )
-//   value_sent_to_payee == value_to_send
-// }
-
 fn hours_to_millis(hours: Int) {
   hours * 60 * 60 * 1_000
 }
@@ -133,7 +116,7 @@ pub fn run_validation(
   expect InlineDatum(data) = locked_input.datum
   expect datum: Datum = data
 
-  // Check right amount is sent to payee
+  // Build desired payee_address
   let payee_address =
     when datum.payee_stake_pkh is {
       Some(stake_pkh) ->
@@ -142,7 +125,17 @@ pub fn run_validation(
           |> credential.with_delegation_key(stake_pkh)
       None -> credential.from_verification_key(datum.payee_payment_pkh)
     }
+  // Ensure payee_output address matches desired one
   let is_payee_output_correct = payee_output.address == payee_address
+  // Building amount to send to payee
+  let value_to_send =
+    list.foldl(
+      datum.amount_to_send,
+      value.zero(),
+      fn(n, acc) { acc |> add(n.1st, n.2nd, n.3rd) },
+    )
+  // Check right amount is sent to payee
+  let must_pay_payee = payee_output.value == value_to_send
 
   // Check right amount is returned to the script, if stake address is specified, the address must be a mingled or franken address.
   expect ScriptCredential(script_hash) = locked_input.address.payment_credential
@@ -154,19 +147,11 @@ pub fn run_validation(
           |> credential.with_delegation_key(stake_pkh)
       None -> credential.from_verification_key(script_hash)
     }
+  // Ensure returning_output address matches desired one
   let is_returning_output_correct = returning_output.address == script_address
-  // Value is an opaque type, so build it here from the list of tokens in the datum.
-  let value_to_send =
-    list.foldl(
-      datum.amount_to_send,
-      value.zero(),
-      fn(n, acc) { acc |> add(n.1st, n.2nd, n.3rd) },
-    )
 
   // Checking Timing is right
   let is_tx_time_valid = datum |> is_payment_time_valid(validity_range)
-
-  let must_pay_payee = payee_output.value == value_to_send
 
   // check max fee
   let is_bot_fee_ok = datum.max_fees_lovelace >= settings.bot_fee_lovelace
@@ -183,7 +168,8 @@ pub fn run_validation(
   let is_amount_sent_back_to_script_correct =
     returning_output.value == value.merge(locked_input.value, spent_amount)
 
-  // Check new datum is created
+  // Check new datum is correct, only new start time can be updated.
+  // TODO: it should not matter, but what if start time is set to after end time?
   let expected_datum =
     Datum {
       ..datum,
