@@ -28,7 +28,7 @@ pub type Datum {
 
 pub type Redeemer {
   Withdraw
-  ExecutePayment { in_index: Int, out_index: Int, returning_out_index: Int }
+  ExecutePayment { in_index: Int }
 }
 
 pub type PaymentFrenquency {

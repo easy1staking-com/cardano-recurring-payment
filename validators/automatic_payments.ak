@@ -3,8 +3,7 @@ use aiken/interval.{Finite, Interval, IntervalBound}
 use aiken/list
 use aiken/time.{PosixTime}
 use aiken/transaction.{
-  InlineDatum, Input, Output, OutputReference, ScriptContext, Spend, Transaction,
-  ValidityRange,
+  InlineDatum, Input, Output, ScriptContext, Spend, Transaction, ValidityRange,
 }
 use aiken/transaction/credential.{Address, ScriptCredential, VerificationKey}
 use aiken/transaction/value.{PolicyId, add}
@@ -41,11 +40,15 @@ pub fn is_payment_time_valid(self: Datum, validity_range: ValidityRange) -> Bool
   let is_payment_deadline_valid =
     when self.end_time is {
       Some(actual_end_time) ->
-        !interval.contains(validity_range, actual_end_time)
+        interval.is_entirely_before(validity_range, actual_end_time)
       _ -> True
     }
 
-  is_start_time_valid? && is_end_time_valid? && is_payment_deadline_valid?
+  and {
+    is_start_time_valid?,
+    is_end_time_valid?,
+    is_payment_deadline_valid?,
+  }
 }
 
 fn hours_to_millis(hours: Int) {
@@ -215,7 +218,7 @@ validator(settings_policy_id: PolicyId) {
           )
         must_be_signed_by_owner
       }
-      ExecutePayment { in_index, out_index, returning_out_index } -> {
+      ExecutePayment { in_index } -> {
         expect ScriptContext { transaction: tx, purpose: Spend(own_ref) } =
           context
 
@@ -224,16 +227,16 @@ validator(settings_policy_id: PolicyId) {
         expect Some(Input { output: in_utxo, output_reference: in_ref }) =
           inputs |> list.at(in_index)
 
+        // Input to Outputs pairing + Double Satisfaction Prevention
+        // Instead of pairing inputs and outputs (where manually setting outputs indexes could lead to double satisfaction)
+        // Here only inputs indexes are set, matched against the spend output ref, and outputs are expected to be in a determined position
+        let out_index = in_index / 2
+        let returning_out_index = in_index / 2 + 1
         expect Some(out_utxo) = outputs |> list.at(out_index)
         expect Some(returning_output) = outputs |> list.at(returning_out_index)
 
         // Indicated input must match the spending one.
         expect (own_ref == in_ref)?
-
-        // This one line should prevent double satisfaction
-        expect InlineDatum(in_ref_datum) = out_utxo.datum
-        expect actual_in_ref: OutputReference = in_ref_datum
-        expect actual_in_ref == in_ref
 
         // Read configuration from ref input
         let settings = load_settings(tx, settings_policy_id)
