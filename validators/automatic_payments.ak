@@ -225,12 +225,21 @@ validator(settings_policy_id: PolicyId) {
         let Transaction { inputs, outputs, .. } = tx
 
         expect Some(Input { output: in_utxo, output_reference: in_ref }) =
-          inputs |> list.at(in_index)
+          inputs
+            |> list.filter(
+                fn(input) {
+                  when input.output.address.payment_credential is {
+                    ScriptCredential(_) -> True
+                    _ -> False
+                  }
+                },
+              )
+            |> list.at(in_index)
 
         // Input to Outputs pairing + Double Satisfaction Prevention
         // Instead of pairing inputs and outputs (where manually setting outputs indexes could lead to double satisfaction)
         // Here only inputs indexes are set, matched against the spend output ref, and outputs are expected to be in a determined position
-        let returning_out_index = in_index + num_batch_payments + 1
+        let returning_out_index = in_index + num_batch_payments
         expect Some(out_utxo) = outputs |> list.at(in_index)
         expect Some(returning_output) = outputs |> list.at(returning_out_index)
 
