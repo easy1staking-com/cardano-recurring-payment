@@ -313,7 +313,7 @@ test load_configuration_fail_no_datum() fail {
 test load_configuration_succeed() {
   let address = payment_pkh_1 |> credential.from_verification_key
   let expected_configuration =
-    Settings(bot_payment_pkh, bot_payment_pkh, 1_000_000)
+    Settings(bot_payment_pkh, [bot_payment_pkh], [], 1_000_000, 360_000)
   let transaction =
     Transaction {
       ..transaction.placeholder(),
@@ -354,7 +354,7 @@ test load_configuration_succeed() {
 
 test serialise_settings_policy_id() {
   let settings_policy_id: PolicyId =
-    #"2c1138e039f65a6840462c25c2fcb6b653bb7b07ed9446cf677632f8"
+    #"845a9b6c2341f6214cd00ac42e528440fd0c3707756ad1e1642f6809"
   let policy_id_cbor = cbor.serialise(settings_policy_id)
   let serialised_settings_policy_id = bytearray.to_hex(policy_id_cbor)
   trace serialised_settings_policy_id

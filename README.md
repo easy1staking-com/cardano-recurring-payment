@@ -49,8 +49,8 @@ excute exactly X payments
 the next payment is scheduled based on the desired time + delay. Eg, if a payment is sceduled to be exectuded at 8am daily, but gets executed
 at 8:05, the next day it will still be scheduled for 8am, and not 1 day after the execution time.
 * It it possible to pay to both enterprise or staking address
+* Special users can be added and won't pay operators fee, but only base fees
 
 ### Additional Features
 
-* [ ] Add a list of PKH in settings datum which don't pay fees (use index in redeemer to avoid loop)
 * [ ] Pay to a contract (will require support for script credentials and datum)

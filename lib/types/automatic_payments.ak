@@ -28,7 +28,12 @@ pub type Datum {
 
 pub type Redeemer {
   Withdraw
-  ExecutePayment { in_index: Int, num_batch_payments: Int }
+  ExecutePayment {
+    in_index: Int,
+    num_batch_payments: Int,
+    operator_index: Int,
+    fee_exempt_user_index: Option<Int>,
+  }
 }
 
 pub type PaymentFrenquency {
@@ -44,6 +49,8 @@ pub type PaymentFrenquency {
 pub type Settings {
   // BOT Payment PKH
   setting_admin_pkh: Hash<Blake2b_224, VerificationKey>,
-  bot_payment_pkh: Hash<Blake2b_224, VerificationKey>,
-  bot_fee_lovelace: Int,
+  authorized_operators: List<Hash<Blake2b_224, VerificationKey>>,
+  operator_fee_exempt_users: List<Hash<Blake2b_224, VerificationKey>>,
+  operator_fee_lovelace: Int,
+  base_fee_lovelace: Int,
 }

@@ -1,11 +1,10 @@
-use aiken/hash.{Blake2b_224, Hash}
 use aiken/interval.{Finite, Interval, IntervalBound}
 use aiken/list
 use aiken/time.{PosixTime}
 use aiken/transaction.{
   InlineDatum, Input, Output, ScriptContext, Spend, Transaction, ValidityRange,
 }
-use aiken/transaction/credential.{Address, ScriptCredential, VerificationKey}
+use aiken/transaction/credential.{Address, ScriptCredential}
 use aiken/transaction/value.{PolicyId, add}
 use types/automatic_payments.{
   Daily, Datum, Days, ExecutePayment, Hourly, Hours, PaymentFrenquency, Redeemer,
@@ -104,8 +103,8 @@ pub fn load_settings(
           },
         )
   expect InlineDatum(datum) = configuration_input.output.datum
-  expect configuration: Settings = datum
-  configuration
+  expect settings: Settings = datum
+  settings
 }
 
 pub fn run_validation(
@@ -114,8 +113,8 @@ pub fn run_validation(
   payee_output: Output,
   returning_output: Output,
   validity_range: ValidityRange,
-  extra_signatories: List<Hash<Blake2b_224, VerificationKey>>,
   settings: Settings,
+  fee_exempt_user_index: Option<Int>,
 ) -> Bool {
   // Build desired payee_address
   let payee_address =
@@ -155,14 +154,26 @@ pub fn run_validation(
   let is_tx_time_valid = datum |> is_payment_time_valid(validity_range)
 
   // check max fee
-  let is_bot_fee_ok = datum.max_fees_lovelace >= settings.bot_fee_lovelace
+  let is_bot_fee_ok =
+    datum.max_fees_lovelace >= settings.operator_fee_lovelace + settings.base_fee_lovelace
 
   // Calculated the amount spent by the sender:
-  // 1. bot operator fees
-  // 2. transaction fee
+  // 1. bot operator fees (wich may be forfaited for specific users)
+  // 2. base fee
   // 3. payment amount
+  let operator_fee_lovelaces =
+    when fee_exempt_user_index is {
+      Some(user_index) -> {
+        expect Some(user_pk) =
+          list.at(settings.operator_fee_exempt_users, user_index)
+        expect user_pk == datum.owner_payment_pkh
+        value.zero()
+      }
+      _ -> value.from_lovelace(settings.operator_fee_lovelace)
+    }
   let spent_amount =
-    value.from_lovelace(settings.bot_fee_lovelace)
+    value.from_lovelace(settings.base_fee_lovelace)
+      |> value.merge(operator_fee_lovelaces)
       |> value.merge(value_to_send)
       |> value.negate
 
@@ -184,14 +195,9 @@ pub fn run_validation(
   expect actual_datum: Datum = data
   let is_valid_datum = expected_datum == actual_datum
 
-  // Must be signed by the bot
-  let must_be_signed_by_bot =
-    list.has(extra_signatories, settings.bot_payment_pkh)
-
   and {
     is_payee_output_correct?,
     must_pay_payee?,
-    must_be_signed_by_bot?,
     is_returning_output_correct?,
     is_amount_sent_back_to_script_correct?,
     is_tx_time_valid?,
@@ -215,7 +221,12 @@ validator(settings_policy_id: PolicyId) {
           )
         must_be_signed_by_owner
       }
-      ExecutePayment { in_index, num_batch_payments } -> {
+      ExecutePayment {
+        in_index,
+        num_batch_payments,
+        operator_index,
+        fee_exempt_user_index,
+      } -> {
         expect ScriptContext { transaction: tx, purpose: Spend(own_ref) } =
           context
 
@@ -252,14 +263,21 @@ validator(settings_policy_id: PolicyId) {
 
         // Read configuration from ref input
         let settings = load_settings(tx, settings_policy_id)
+        // Must be signed by the bot
+        // Use index to fetch operator key
+        expect Some(operator_pkh) =
+          list.at(settings.authorized_operators, operator_index)
+        // Ensure key has signed the tx
+        expect list.has(tx.extra_signatories, operator_pkh)?
+
         run_validation(
           datum,
           in_utxo,
           out_utxo,
           returning_output,
           tx.validity_range,
-          tx.extra_signatories,
           settings,
+          fee_exempt_user_index,
         )
       }
     }
