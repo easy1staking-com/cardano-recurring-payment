@@ -109,6 +109,7 @@ pub fn load_settings(
 }
 
 pub fn run_validation(
+  datum: Datum,
   locked_input: Output,
   payee_output: Output,
   returning_output: Output,
@@ -116,9 +117,6 @@ pub fn run_validation(
   extra_signatories: List<Hash<Blake2b_224, VerificationKey>>,
   settings: Settings,
 ) -> Bool {
-  expect InlineDatum(data) = locked_input.datum
-  expect datum: Datum = data
-
   // Build desired payee_address
   let payee_address =
     when datum.payee_stake_pkh is {
@@ -204,13 +202,12 @@ pub fn run_validation(
 
 validator(settings_policy_id: PolicyId) {
   pub fn automatic_payments(
-    data: Data,
+    datum: Datum,
     redeemer: Redeemer,
     context: ScriptContext,
   ) -> Bool {
     when redeemer is {
       Withdraw -> {
-        expect datum: Datum = data
         let must_be_signed_by_owner =
           list.has(
             context.transaction.extra_signatories,
@@ -256,6 +253,7 @@ validator(settings_policy_id: PolicyId) {
         // Read configuration from ref input
         let settings = load_settings(tx, settings_policy_id)
         run_validation(
+          datum,
           in_utxo,
           out_utxo,
           returning_output,
