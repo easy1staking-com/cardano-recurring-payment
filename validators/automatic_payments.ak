@@ -132,7 +132,7 @@ pub fn run_validation(
     list.foldl(
       datum.amount_to_send,
       value.zero(),
-      fn(n, acc) { acc |> add(n.1st, n.2nd, n.3rd) },
+      fn(n, acc) { acc |> add(n.policy_id, n.asset_name, n.amount) },
     )
   // Check right amount is sent to payee
   let must_pay_payee = payee_output.value == value_to_send

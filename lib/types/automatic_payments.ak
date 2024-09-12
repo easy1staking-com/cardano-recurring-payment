@@ -3,13 +3,19 @@ use aiken/time.{PosixTime}
 use aiken/transaction/credential.{VerificationKey}
 use aiken/transaction/value.{AssetName, PolicyId}
 
+pub type AssetAmount {
+  policy_id: PolicyId,
+  asset_name: AssetName,
+  amount: Int,
+}
+
 pub type Datum {
   /// The funds owner 
   owner_payment_pkh: Hash<Blake2b_224, VerificationKey>,
   /// The optional (?) stake address of the sender mingled address
   owner_stake_pkh: Option<Hash<Blake2b_224, VerificationKey>>,
   /// Value to sent periodically
-  amount_to_send: List<(PolicyId, AssetName, Int)>,
+  amount_to_send: List<AssetAmount>,
   /// Destination address Payment pub key
   payee_payment_pkh: Hash<Blake2b_224, VerificationKey>,
   /// Destination address Staking pub key (optional)
