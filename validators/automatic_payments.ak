@@ -206,6 +206,13 @@ pub fn run_validation(
   }
 }
 
+// The goal of this validator is to allow
+// 1. a certain value
+// 2. to be sent to a specific address
+// 3. after a certain instant
+// 4. optionally within a certain delay
+// 5. return remaining funds (minus fees) to same script address + desired optional stake address
+// 6. prepare for next timed payment (if supposed to - end_time)
 validator(settings_policy_id: PolicyId) {
   pub fn automatic_payments(
     datum: Datum,
@@ -213,6 +220,7 @@ validator(settings_policy_id: PolicyId) {
     context: ScriptContext,
   ) -> Bool {
     when redeemer is {
+      // Owner can spend anytime. 
       Withdraw -> {
         let must_be_signed_by_owner =
           list.has(

@@ -3,7 +3,7 @@ use aiken/cbor
 use aiken/transaction.{OutputReference, TransactionId}
 
 const tx_hash_id =
-  #"4f79db6c5e935d243340c44ab53f51dc3e6dd1c1a859f22f862482397b6a9281"
+  #"dfa5892f4623b8fbe0aaab204b33c93bab0bb6a8e655d1b61aa333222fac7c64"
 
 const output_index = 0
 
