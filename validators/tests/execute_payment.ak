@@ -354,7 +354,7 @@ test load_configuration_succeed() {
 
 test serialise_settings_policy_id() {
   let settings_policy_id: PolicyId =
-    #"845a9b6c2341f6214cd00ac42e528440fd0c3707756ad1e1642f6809"
+    #"92ab0d02e2a5de7ef53393e8f352e6123b86268860d4359951423df2"
   let policy_id_cbor = cbor.serialise(settings_policy_id)
   let serialised_settings_policy_id = bytearray.to_hex(policy_id_cbor)
   trace serialised_settings_policy_id
