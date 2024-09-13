@@ -7,8 +7,7 @@ use aiken/transaction.{
 use aiken/transaction/credential.{Address, ScriptCredential}
 use aiken/transaction/value.{PolicyId, add}
 use types/automatic_payments.{
-  Daily, Datum, Days, ExecutePayment, Hourly, Hours, PaymentFrenquency, Redeemer,
-  Settings, Weekly, Weeks, Withdraw, Yearly,
+  Datum, ExecutePayment, Redeemer, Settings, Withdraw,
 } as automatic_payments_types
 
 // Sending funds must happen after a certain moment in time has passed, but also,
@@ -50,43 +49,19 @@ pub fn is_payment_time_valid(self: Datum, validity_range: ValidityRange) -> Bool
   }
 }
 
-fn hours_to_millis(hours: Int) {
+fn to_millis(hours: Int) {
   hours * 60 * 60 * 1_000
-}
-
-fn days_to_millis(days: Int) {
-  days * hours_to_millis(24)
-}
-
-fn to_millis(payment_frenquency: PaymentFrenquency) -> Int {
-  when payment_frenquency is {
-    Hourly -> hours_to_millis(1)
-    Hours { hours: _ } -> 10
-    Daily -> days_to_millis(1)
-    Days { days } -> days_to_millis(days)
-    Weekly -> days_to_millis(7)
-    Weeks { weeks } -> weeks * days_to_millis(7)
-    Yearly -> days_to_millis(365)
-  }
 }
 
 pub fn compute_new_start_time(
   start_time: PosixTime,
-  payment_frequency: PaymentFrenquency,
+  payment_interval_hours: Int,
   validity_range: ValidityRange,
 ) -> PosixTime {
   expect Finite(lower_bound) = validity_range.lower_bound.bound_type
-  let k = ( lower_bound - start_time ) / to_millis(payment_frequency) + 1
+  let k = ( lower_bound - start_time ) / to_millis(payment_interval_hours) + 1
 
-  when payment_frequency is {
-    Hourly -> start_time + k * hours_to_millis(1)
-    Hours { hours } -> start_time + k * hours_to_millis(hours)
-    Daily -> start_time + k * days_to_millis(1)
-    Days { days } -> start_time + k * days_to_millis(days)
-    Weekly -> start_time + k * days_to_millis(7)
-    Weeks { weeks } -> start_time + k * weeks * days_to_millis(7)
-    Yearly -> start_time + k * days_to_millis(365)
-  }
+  start_time + k * to_millis(payment_interval_hours)
 }
 
 pub fn load_settings(
@@ -187,7 +162,7 @@ pub fn run_validation(
       ..datum,
       start_time: compute_new_start_time(
         datum.start_time,
-        datum.payment_frenquency,
+        datum.payment_interval_hours,
         validity_range,
       ),
     }

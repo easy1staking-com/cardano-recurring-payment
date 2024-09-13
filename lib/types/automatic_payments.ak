@@ -25,7 +25,7 @@ pub type Datum {
   /// If specified, no more payments must be made after end date. This can be used to determine how many payments to make (start_time + (N + 1) * payment_frequency)
   end_time: Option<PosixTime>,
   /// How often to perform a payment
-  payment_frenquency: PaymentFrenquency,
+  payment_interval_hours: Int,
   /// Maximum delay to perform payment within a period. Expressed in hours.
   max_payment_delay_hours: Option<Int>,
   /// max fee customer is willing to pay
@@ -40,16 +40,6 @@ pub type Redeemer {
     operator_index: Int,
     fee_exempt_user_index: Option<Int>,
   }
-}
-
-pub type PaymentFrenquency {
-  Hourly
-  Hours { hours: Int }
-  Daily
-  Days { days: Int }
-  Weekly
-  Weeks { weeks: Int }
-  Yearly
 }
 
 pub type Settings {

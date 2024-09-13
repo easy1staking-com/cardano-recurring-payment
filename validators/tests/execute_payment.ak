@@ -12,9 +12,8 @@ use automatic_payments.{
   load_settings,
 }
 use tests/fixtures.{datum_template}
-use types/automatic_payments.{
-  Daily, Datum, Days, Hourly, Settings, Weeks, Withdraw,
-} as automatic_payments_types
+use types/automatic_payments.{Datum,
+  Settings, Withdraw} as automatic_payments_types
 
 const payment_pkh = #"4f0f62955aaac98d8ffc1d26279cfafc9cbf46f44225e269bbe29560"
 
@@ -186,7 +185,7 @@ test is_payment_time_valid_fail_start_time_and_end_time_and_fail_end_time() {
 test compute_new_start_time_1_hour() {
   compute_new_start_time(
     1721163789000,
-    Hourly,
+    1,
     between(1721164509000, 1721165409000),
   ) == 1721167389000
 }
@@ -194,7 +193,7 @@ test compute_new_start_time_1_hour() {
 test compute_new_start_time_1_day() {
   compute_new_start_time(
     1721163789000,
-    Daily,
+    24,
     between(1721164509000, 1721165409000),
   ) == 1721250189000
 }
@@ -202,7 +201,7 @@ test compute_new_start_time_1_day() {
 test compute_new_start_time_3_day() {
   compute_new_start_time(
     1721163789000,
-    Days(3),
+    3 * 24,
     between(1721164509000, 1721165409000),
   ) == 1721422989000
 }
@@ -210,7 +209,7 @@ test compute_new_start_time_3_day() {
 test compute_new_start_time_5_day() {
   compute_new_start_time(
     1721163789000,
-    Days(5),
+    5 * 24,
     between(1721164509000, 1721165409000),
   ) == 1721595789000
 }
@@ -218,7 +217,7 @@ test compute_new_start_time_5_day() {
 test compute_new_start_time_2_weeks() {
   compute_new_start_time(
     1721163789000,
-    Weeks(2),
+    2 * 7 * 24,
     between(1721164509000, 1721165409000),
   ) == 1722373389000
 }
@@ -226,7 +225,7 @@ test compute_new_start_time_2_weeks() {
 test compute_new_start_time_end_time_skip_1h() {
   compute_new_start_time(
     1721163789000,
-    Hourly,
+    1,
     between(1721167809000, 1721169009000),
   ) == 1721170989000
 }
