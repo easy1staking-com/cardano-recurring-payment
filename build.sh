@@ -8,8 +8,8 @@ aiken() {
 
 # exit 0
 
-aiken build -t verbose &> /dev/null
-# aiken build &> /dev/null
+# aiken build -t verbose &> /dev/null
+aiken build &> /dev/null
 
 ## PREPROD ##
 

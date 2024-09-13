@@ -120,7 +120,7 @@ pub fn run_validation(
         script_hash
           |> credential.from_script
           |> credential.with_delegation_key(stake_pkh)
-      None -> credential.from_verification_key(script_hash)
+      None -> credential.from_script(script_hash)
     }
   // Ensure returning_output address matches desired one
   let is_returning_output_correct = returning_output.address == script_address
@@ -136,6 +136,9 @@ pub fn run_validation(
   // 1. bot operator fees (wich may be forfaited for specific users)
   // 2. base fee
   // 3. payment amount
+  // FIXME: Theoretically, if someone sets up a payment w/ pkh of a fee exempt user, they might
+  // take advantage of free payments, but they won't be able to withdraw the funds and actually give control
+  // to someone else.
   let operator_fee_lovelaces =
     when fee_exempt_user_index is {
       Some(user_index) -> {
