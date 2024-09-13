@@ -249,7 +249,7 @@ validator(settings_policy_id: PolicyId) {
         // Must be signed by the bot
         // Use index to fetch operator key
         expect Some(operator_pkh) =
-          list.at(settings.authorized_operators, operator_index)
+          list.at(settings.authorised_operators, operator_index)
         // Ensure key has signed the tx
         expect list.has(tx.extra_signatories, operator_pkh)?
 

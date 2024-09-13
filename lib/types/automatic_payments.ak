@@ -45,7 +45,7 @@ pub type Redeemer {
 pub type Settings {
   // BOT Payment PKH
   setting_admin_pkh: Hash<Blake2b_224, VerificationKey>,
-  authorized_operators: List<Hash<Blake2b_224, VerificationKey>>,
+  authorised_operators: List<Hash<Blake2b_224, VerificationKey>>,
   operator_fee_exempt_users: List<Hash<Blake2b_224, VerificationKey>>,
   operator_fee_lovelace: Int,
   base_fee_lovelace: Int,
