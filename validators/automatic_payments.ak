@@ -1,11 +1,10 @@
-use aiken/hash.{Blake2b_224, Hash}
 use aiken/interval.{Finite, Interval, IntervalBound}
 use aiken/list
 use aiken/time.{PosixTime}
 use aiken/transaction.{
   InlineDatum, Input, Output, ScriptContext, Spend, Transaction, ValidityRange,
 }
-use aiken/transaction/credential.{Address, ScriptCredential, VerificationKey}
+use aiken/transaction/credential.{Address, ScriptCredential}
 use aiken/transaction/value.{PolicyId, Value, add}
 use types/automatic_payments.{
   AssetAmount, Datum, ExecutePayment, Redeemer, Settings, Withdraw,
@@ -85,6 +84,8 @@ pub fn is_returning_amount_correct(
   datum: Datum,
   ada_expected_returning_amount: Int,
   token_expected_returning_amount: Value,
+  payment_interval_hours: Int,
+  validity_range: ValidityRange,
 ) -> Bool {
   // Check right amount is returned to the script, if stake address is specified, the address must be a mingled or franken address.
   expect ScriptCredential(script_hash) = locked_input.address.payment_credential
@@ -108,9 +109,26 @@ pub fn is_returning_amount_correct(
   let token_returning_amount = value.without_lovelace(returning_output.value)
   let is_token_returning_amount_correct =
     token_expected_returning_amount == token_returning_amount
+
   // Ada amount must be greater equal (because of possible base fee split)
+  // Check new datum is correct, only new start time can be updated.
+  // TODO: it should not matter, but what if start time is set to after end time?
+  let expected_datum =
+    Datum {
+      ..datum,
+      start_time: compute_new_start_time(
+        datum.start_time,
+        payment_interval_hours,
+        validity_range,
+      ),
+    }
+  expect InlineDatum(data) = returning_output.datum
+  expect actual_datum: Datum = data
+  let is_output_datum_correct = expected_datum == actual_datum
+
   and {
     is_returning_address_correct?,
+    is_output_datum_correct,
     is_ada_returning_amount_correct?,
     is_token_returning_amount_correct?,
   }
@@ -214,6 +232,8 @@ pub fn run_validation(
             datum,
             ada_expected_returning_amount,
             token_expected_returning_amount,
+            payment_interval_hours,
+            validity_range,
           )
         }
       }
