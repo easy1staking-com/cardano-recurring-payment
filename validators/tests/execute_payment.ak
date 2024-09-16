@@ -8,16 +8,17 @@ use aiken/transaction.{
 use aiken/transaction/credential
 use aiken/transaction/value.{PolicyId, add}
 use automatic_payments.{
-  automatic_payments, compute_new_start_time, is_payment_time_valid,
+  automatic_payments, compute_new_start_time, compute_value_to_send,
+  is_payment_correct, is_payment_time_valid, is_returning_amount_correct,
   load_settings,
 }
 use tests/fixtures.{datum_template}
-use types/automatic_payments.{Datum,
-  Settings, Withdraw} as automatic_payments_types
+use types/automatic_payments.{AssetAmount,
+  Datum, Settings, Withdraw} as automatic_payments_types
 
 const payment_pkh = #"4f0f62955aaac98d8ffc1d26279cfafc9cbf46f44225e269bbe29560"
 
-// const staking_pkh = #"420268df8f2f20358ff8305836ed590ab691b7263e28ea5d60b4ac51"
+const staking_pkh = #"420268df8f2f20358ff8305836ed590ab691b7263e28ea5d60b4ac51"
 
 const payment_pkh_1 =
   #"869423edf942154f9a965a51a06639a2645f23a67fe849ecbe8762b4"
@@ -79,6 +80,179 @@ test automatic_payments_fail_withdraw() {
     datum,
     Withdraw,
     context,
+  )
+}
+
+test is_returning_amount_correct_succeed() {
+  let datum =
+    Datum {
+      ..datum_template(),
+      owner_payment_pkh: payment_pkh,
+      owner_stake_pkh: Some(staking_pkh),
+      start_time: 1721163789000,
+    }
+
+  let address =
+    credential.from_script(payment_pkh)
+      |> credential.with_delegation_key(staking_pkh)
+  let locked_input =
+    Output {
+      address,
+      value: value.from_lovelace(12_000_000),
+      datum: InlineDatum(datum),
+      reference_script: None,
+    }
+
+  let returning_datum = Datum { ..datum, start_time: 1721167389000 }
+
+  let returning_output =
+    Output {
+      ..locked_input,
+      address: address,
+      value: value.from_lovelace(5_000_000),
+      datum: InlineDatum(returning_datum),
+    }
+
+  is_returning_amount_correct(
+    locked_input: locked_input,
+    returning_output: returning_output,
+    datum: datum,
+    ada_expected_returning_amount: 5_000_000,
+    token_expected_returning_amount: value.zero(),
+    payment_interval_hours: 1,
+    validity_range: between(1721164509000, 1721165409000),
+  )
+}
+
+test compute_value_to_send_zero() {
+  let value_to_send = compute_value_to_send([])
+
+  value.is_zero(value_to_send)
+}
+
+test compute_value_to_send_simple_1_ada() {
+  let value_to_send = compute_value_to_send([AssetAmount(#"", #"", 1_000_000)])
+
+  value_to_send == value.from_lovelace(1_000_000)
+}
+
+test compute_value_to_send_simple_2_times_1_ada() {
+  let value_to_send =
+    compute_value_to_send(
+      [AssetAmount(#"", #"", 1_000_000), AssetAmount(#"", #"", 1_000_000)],
+    )
+
+  value_to_send == value.from_lovelace(2_000_000)
+}
+
+test compute_value_to_send_token_ada() {
+  let actual_value_to_send =
+    compute_value_to_send(
+      [
+        AssetAmount(#"", #"", 1_000_000),
+        AssetAmount(#"", #"", 1_000_000),
+        AssetAmount(#"abba", #"abba", 5_000_000),
+      ],
+    )
+
+  let expected_value_to_send =
+    value.from_lovelace(2_000_000) |> value.add(#"abba", #"abba", 5_000_000)
+
+  actual_value_to_send == expected_value_to_send
+}
+
+test compute_value_to_send_token_ada_fail() {
+  let actual_value_to_send =
+    compute_value_to_send(
+      [
+        AssetAmount(#"", #"", 1_000_000),
+        AssetAmount(#"", #"", 1_000_000),
+        AssetAmount(#"abba", #"abba", 15_000_000),
+      ],
+    )
+
+  let expected_value_to_send =
+    value.from_lovelace(2_000_000) |> value.add(#"abba", #"abba", 5_000_000)
+
+  actual_value_to_send != expected_value_to_send
+}
+
+test is_payment_correct_succeed() {
+  let datum =
+    Datum {
+      ..datum_template(),
+      payee_payment_pkh: payment_pkh,
+      payee_stake_pkh: Some(staking_pkh),
+    }
+  is_payment_correct(
+    value_to_send: value.from_lovelace(5_000_000),
+    payee_output: Output {
+      address: credential.from_verification_key(payment_pkh)
+        |> credential.with_delegation_key(staking_pkh),
+      value: value.from_lovelace(5_000_000),
+      datum: NoDatum,
+      reference_script: None,
+    },
+    datum: datum,
+  )
+}
+
+test is_payment_correct_fails_amount() {
+  let datum =
+    Datum {
+      ..datum_template(),
+      payee_payment_pkh: payment_pkh,
+      payee_stake_pkh: Some(staking_pkh),
+    }
+  !is_payment_correct(
+    value_to_send: value.from_lovelace(15_000_000),
+    payee_output: Output {
+      address: credential.from_verification_key(payment_pkh)
+        |> credential.with_delegation_key(staking_pkh),
+      value: value.from_lovelace(5_000_000),
+      datum: NoDatum,
+      reference_script: None,
+    },
+    datum: datum,
+  )
+}
+
+test is_payment_correct_fails_staking_address() {
+  let datum =
+    Datum {
+      ..datum_template(),
+      payee_payment_pkh: payment_pkh,
+      payee_stake_pkh: Some(staking_pkh),
+    }
+  !is_payment_correct(
+    value_to_send: value.from_lovelace(5_000_000),
+    payee_output: Output {
+      address: credential.from_verification_key(payment_pkh),
+      value: value.from_lovelace(5_000_000),
+      datum: NoDatum,
+      reference_script: None,
+    },
+    datum: datum,
+  )
+}
+
+test is_payment_correct_fails_payment_address() {
+  let datum =
+    Datum {
+      ..datum_template(),
+      payee_payment_pkh: payment_pkh,
+      payee_stake_pkh: Some(staking_pkh),
+    }
+  !is_payment_correct(
+    value_to_send: value.from_lovelace(5_000_000),
+    payee_output: Output {
+      address: credential.from_verification_key(payment_pkh_1)
+        |> credential.with_delegation_key(staking_pkh),
+      value: value.from_lovelace(5_000_000),
+      datum: NoDatum,
+      reference_script: None,
+    },
+    datum: datum,
   )
 }
 

@@ -1,3 +1,5 @@
+use aiken/bytearray
+use aiken/cbor
 use aiken/interval.{Finite, Interval, IntervalBound}
 use aiken/list
 use aiken/time.{PosixTime}
@@ -92,11 +94,17 @@ pub fn is_returning_amount_correct(
   let script_address =
     when datum.owner_stake_pkh is {
       Some(stake_pkh) ->
-        script_hash
-          |> credential.from_script
+        credential.from_script(script_hash)
           |> credential.with_delegation_key(stake_pkh)
       None -> credential.from_script(script_hash)
     }
+
+  let foo = cbor.serialise(returning_output.address)
+  let bar = cbor.serialise(script_address)
+  let foofoo = bytearray.to_hex(foo)
+  let barbar = bytearray.to_hex(bar)
+  trace foofoo
+  trace barbar
   // Ensure returning_output address matches desired one
   let is_returning_address_correct = returning_output.address == script_address
 
@@ -124,11 +132,12 @@ pub fn is_returning_amount_correct(
     }
   expect InlineDatum(data) = returning_output.datum
   expect actual_datum: Datum = data
+
   let is_output_datum_correct = expected_datum == actual_datum
 
   and {
     is_returning_address_correct?,
-    is_output_datum_correct,
+    is_output_datum_correct?,
     is_ada_returning_amount_correct?,
     is_token_returning_amount_correct?,
   }
@@ -170,7 +179,7 @@ pub fn run_validation(
   datum: Datum,
   locked_input: Output,
   payee_output: Output,
-  returning_output: fn() -> Output,
+  returning_output_opt: Option<Output>,
   validity_range: ValidityRange,
   settings: Settings,
   fee_exempt_user_index: Option<Int>,
@@ -226,9 +235,10 @@ pub fn run_validation(
         if no_tokens && less_than_min_utxo {
           True
         } else {
+          expect Some(returning_output) = returning_output_opt
           is_returning_amount_correct(
             locked_input,
-            returning_output(),
+            returning_output,
             datum,
             ada_expected_returning_amount,
             token_expected_returning_amount,
@@ -253,19 +263,6 @@ pub fn run_validation(
     is_tx_time_valid?,
     is_bot_fee_ok?,
   }
-}
-
-pub fn find_returning_output(
-  in_index: Int,
-  num_batch_payments: Int,
-  outputs: List<Output>,
-) -> Output {
-  // Input to Outputs pairing + Double Satisfaction Prevention
-  // Instead of pairing inputs and outputs (where manually setting outputs indexes could lead to double satisfaction)
-  // Here only inputs indexes are set, matched against the spend output ref, and outputs are expected to be in a determined position
-  let returning_out_index = in_index + num_batch_payments
-  expect Some(returning_output) = outputs |> list.at(returning_out_index)
-  returning_output
 }
 
 // The goal of this validator is to allow
@@ -328,6 +325,9 @@ validator(settings_policy_id: PolicyId) {
         // Here only inputs indexes are set, matched against the spend output ref, and outputs are expected to be in a determined position
         expect Some(out_utxo) = outputs |> list.at(in_index)
 
+        let returning_out_index = in_index + num_batch_payments
+        let returning_output_opt = outputs |> list.at(returning_out_index)
+
         // Indicated input must match the spending one.
         expect (own_ref == in_ref)?
 
@@ -344,7 +344,7 @@ validator(settings_policy_id: PolicyId) {
           in_utxo,
           out_utxo,
           // delaying extraction of utxo as it might be absent
-          fn() { find_returning_output(in_index, num_batch_payments, outputs) },
+          returning_output_opt,
           tx.validity_range,
           settings,
           fee_exempt_user_index,
