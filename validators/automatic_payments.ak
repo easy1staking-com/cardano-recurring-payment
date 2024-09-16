@@ -149,14 +149,27 @@ pub fn run_validation(
       }
       _ -> value.from_lovelace(settings.operator_fee_lovelace)
     }
+  // Maximum spent amount.
   let spent_amount =
     value.from_lovelace(settings.base_fee_lovelace)
       |> value.merge(operator_fee_lovelaces)
       |> value.merge(value_to_send)
       |> value.negate
-
-  let is_amount_sent_back_to_script_correct =
-    returning_output.value == value.merge(locked_input.value, spent_amount)
+  // Expected minimum amount (token + ada) that must be returned.
+  let expected_returning_amount = value.merge(locked_input.value, spent_amount)
+  // Split value in tokens and lovelaces
+  // Returned tokens must match exactly between expected and actual
+  let token_expected_returning_amount =
+    value.without_lovelace(expected_returning_amount)
+  let token_returning_amount = value.without_lovelace(returning_output.value)
+  let is_token_returning_amount_correct =
+    token_expected_returning_amount == token_returning_amount
+  // Ada amount must be greater equal (because of possible base fee split)
+  let ada_expected_returning_amount =
+    value.lovelace_of(expected_returning_amount)
+  let ada_returning_amount = value.lovelace_of(returning_output.value)
+  let is_ada_returning_amount_correct =
+    ada_returning_amount >= ada_expected_returning_amount
 
   // Check new datum is correct, only new start time can be updated.
   // TODO: it should not matter, but what if start time is set to after end time?
@@ -177,7 +190,8 @@ pub fn run_validation(
     is_payee_output_correct?,
     must_pay_payee?,
     is_returning_output_correct?,
-    is_amount_sent_back_to_script_correct?,
+    is_token_returning_amount_correct?,
+    is_ada_returning_amount_correct?,
     is_tx_time_valid?,
     is_bot_fee_ok?,
     is_valid_datum?,
