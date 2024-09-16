@@ -7,7 +7,7 @@ use aiken/transaction.{
 use aiken/transaction/credential.{Address, ScriptCredential}
 use aiken/transaction/value.{PolicyId, Value, add}
 use types/automatic_payments.{
-  Datum, ExecutePayment, Redeemer, Settings, Withdraw,
+  AssetAmount, Datum, ExecutePayment, Redeemer, Settings, Withdraw,
 } as automatic_payments_types
 
 // Sending funds must happen after a certain moment in time has passed, but also,
@@ -81,10 +81,11 @@ pub fn load_settings(
 pub fn is_returning_amount_correct(
   locked_input: Output,
   returning_output: Output,
-  value_to_send: Value,
   datum: Datum,
-  settings: Settings,
-  fee_exempt_user_index: Option<Int>,
+  ada_expected_returning_amount: Int,
+  token_expected_returning_amount: Value,
+  payment_interval_hours: Int,
+  validity_range: ValidityRange,
 ) -> Bool {
   // Check right amount is returned to the script, if stake address is specified, the address must be a mingled or franken address.
   expect ScriptCredential(script_hash) = locked_input.address.payment_credential
@@ -97,62 +98,55 @@ pub fn is_returning_amount_correct(
       None -> credential.from_script(script_hash)
     }
   // Ensure returning_output address matches desired one
-  let is_returning_output_correct = returning_output.address == script_address
+  let is_returning_address_correct = returning_output.address == script_address
 
-  // Calculated the amount spent by the sender:
-  // 1. bot operator fees (wich may be forfaited for specific users)
-  // 2. base fee
-  // 3. payment amount
-  // FIXME: Theoretically, if someone sets up a payment w/ pkh of a fee exempt user, they might
-  // take advantage of free payments, but they won't be able to withdraw the funds and actually give control
-  // to someone else.
-  let operator_fee_lovelaces =
-    when fee_exempt_user_index is {
-      Some(user_index) -> {
-        expect Some(user_pk) =
-          list.at(settings.operator_fee_exempt_users, user_index)
-        expect user_pk == datum.owner_payment_pkh
-        value.zero()
-      }
-      _ -> value.from_lovelace(settings.operator_fee_lovelace)
-    }
-  // Maximum spent amount.
-  let spent_amount =
-    value.from_lovelace(settings.base_fee_lovelace)
-      |> value.merge(operator_fee_lovelaces)
-      |> value.merge(value_to_send)
-      |> value.negate
-  // Expected minimum amount (token + ada) that must be returned.
-  let expected_returning_amount = value.merge(locked_input.value, spent_amount)
-  // Split value in tokens and lovelaces
-  // Returned tokens must match exactly between expected and actual
-  let token_expected_returning_amount =
-    value.without_lovelace(expected_returning_amount)
-  let token_returning_amount = value.without_lovelace(returning_output.value)
-  let is_token_returning_amount_correct =
-    token_expected_returning_amount == token_returning_amount
-  // Ada amount must be greater equal (because of possible base fee split)
-  let ada_expected_returning_amount =
-    value.lovelace_of(expected_returning_amount)
+  // Ensure at least a certain amount of ada is returned
   let ada_returning_amount = value.lovelace_of(returning_output.value)
   let is_ada_returning_amount_correct =
     ada_returning_amount >= ada_expected_returning_amount
 
+  // Ensure the exact amount of token is returned. If any.
+  let token_returning_amount = value.without_lovelace(returning_output.value)
+  let is_token_returning_amount_correct =
+    token_expected_returning_amount == token_returning_amount
+
+  // Ada amount must be greater equal (because of possible base fee split)
+  // Check new datum is correct, only new start time can be updated.
+  // TODO: it should not matter, but what if start time is set to after end time?
+  let expected_datum =
+    Datum {
+      ..datum,
+      start_time: compute_new_start_time(
+        datum.start_time,
+        payment_interval_hours,
+        validity_range,
+      ),
+    }
+  expect InlineDatum(data) = returning_output.datum
+  expect actual_datum: Datum = data
+  let is_output_datum_correct = expected_datum == actual_datum
+
   and {
-    is_returning_output_correct?,
+    is_returning_address_correct?,
+    is_output_datum_correct,
     is_ada_returning_amount_correct?,
     is_token_returning_amount_correct?,
   }
 }
 
-pub fn run_validation(
-  datum: Datum,
-  locked_input: Output,
+pub fn compute_value_to_send(amount_to_send: List<AssetAmount>) -> Value {
+  list.foldl(
+    amount_to_send,
+    value.zero(),
+    fn(n, acc) { acc |> add(n.policy_id, n.asset_name, n.amount) },
+  )
+}
+
+// Check the desired amount is sent to the right address
+pub fn is_payment_correct(
+  value_to_send: Value,
   payee_output: Output,
-  returning_output: Output,
-  validity_range: ValidityRange,
-  settings: Settings,
-  fee_exempt_user_index: Option<Int>,
+  datum: Datum,
 ) -> Bool {
   // Build desired payee_address
   let payee_address =
@@ -163,27 +157,88 @@ pub fn run_validation(
           |> credential.with_delegation_key(stake_pkh)
       None -> credential.from_verification_key(datum.payee_payment_pkh)
     }
-  // Ensure payee_output address matches desired one
-  let is_payee_output_correct = payee_output.address == payee_address
-  // Building amount to send to payee
-  let value_to_send =
-    list.foldl(
-      datum.amount_to_send,
-      value.zero(),
-      fn(n, acc) { acc |> add(n.policy_id, n.asset_name, n.amount) },
-    )
-  // Check right amount is sent to payee
-  let must_pay_payee = payee_output.value == value_to_send
 
-  let is_returning_amount_correct =
-    is_returning_amount_correct(
-      locked_input,
-      returning_output,
-      value_to_send,
-      datum,
-      settings,
-      fee_exempt_user_index,
-    )
+  and {
+    // Ensure payee_output address matches desired one
+    payee_output.address == payee_address,
+    // Check right amount is sent to payee
+    payee_output.value == value_to_send,
+  }
+}
+
+pub fn run_validation(
+  datum: Datum,
+  locked_input: Output,
+  payee_output: Output,
+  returning_output: fn() -> Output,
+  validity_range: ValidityRange,
+  settings: Settings,
+  fee_exempt_user_index: Option<Int>,
+) -> Bool {
+  // Building amount to send to payee
+  let value_to_send = compute_value_to_send(datum.amount_to_send)
+  // Check if actual payment is executed
+  let is_payment_correct =
+    is_payment_correct(value_to_send, payee_output, datum)
+
+  // Must check that, if expected, there's a payment back into the contract
+  // In case of non-recurring payments, we don't care
+  // In case or recurring payments, the right amount must be paid back to the contract,
+  // with the exception of the last payment where there's not enough for min_utxo.
+  let is_returning_output_correct =
+    when datum.payment_interval_hours is {
+      Some(payment_interval_hours) -> {
+        // Calculated the amount spent by the sender:
+        // 1. bot operator fees (wich may be forfaited for specific users)
+        // 2. base fee
+        // 3. payment amount
+        // FIXME: Theoretically, if someone sets up a payment w/ pkh of a fee exempt user, they might
+        // take advantage of free payments, but they won't be able to withdraw the funds and actually give control
+        // to someone else.
+        let operator_fee_lovelaces =
+          when fee_exempt_user_index is {
+            Some(user_index) -> {
+              expect Some(user_pk) =
+                list.at(settings.operator_fee_exempt_users, user_index)
+              expect user_pk == datum.owner_payment_pkh
+              value.zero()
+            }
+            _ -> value.from_lovelace(settings.operator_fee_lovelace)
+          }
+        // Maximum spent amount.
+        let spent_amount =
+          value.from_lovelace(settings.base_fee_lovelace)
+            |> value.merge(operator_fee_lovelaces)
+            |> value.merge(value_to_send)
+            |> value.negate
+        // Expected minimum amount (token + ada) that must be returned.
+        let expected_returning_amount =
+          value.merge(locked_input.value, spent_amount)
+        // Split value in tokens and lovelaces
+        // Returned tokens must match exactly between expected and actual
+        let token_expected_returning_amount =
+          value.without_lovelace(expected_returning_amount)
+        let ada_expected_returning_amount =
+          value.lovelace_of(expected_returning_amount)
+        // If there are no tokens left and less than 1 ada, we don't check for returning output.
+        let no_tokens = value.is_zero(token_expected_returning_amount)
+        let less_than_min_utxo = ada_expected_returning_amount < 1_000_000
+        if no_tokens && less_than_min_utxo {
+          True
+        } else {
+          is_returning_amount_correct(
+            locked_input,
+            returning_output(),
+            datum,
+            ada_expected_returning_amount,
+            token_expected_returning_amount,
+            payment_interval_hours,
+            validity_range,
+          )
+        }
+      }
+      _ -> True
+    }
 
   // Checking Timing is right
   let is_tx_time_valid = datum |> is_payment_time_valid(validity_range)
@@ -192,29 +247,25 @@ pub fn run_validation(
   let is_bot_fee_ok =
     datum.max_fees_lovelace >= settings.operator_fee_lovelace + settings.base_fee_lovelace
 
-  // Check new datum is correct, only new start time can be updated.
-  // TODO: it should not matter, but what if start time is set to after end time?
-  let expected_datum =
-    Datum {
-      ..datum,
-      start_time: compute_new_start_time(
-        datum.start_time,
-        datum.payment_interval_hours,
-        validity_range,
-      ),
-    }
-  expect InlineDatum(data) = returning_output.datum
-  expect actual_datum: Datum = data
-  let is_valid_datum = expected_datum == actual_datum
-
   and {
-    is_payee_output_correct?,
-    must_pay_payee?,
-    is_returning_amount_correct?,
+    is_payment_correct?,
+    is_returning_output_correct?,
     is_tx_time_valid?,
     is_bot_fee_ok?,
-    is_valid_datum?,
   }
+}
+
+pub fn find_returning_output(
+  in_index: Int,
+  num_batch_payments: Int,
+  outputs: List<Output>,
+) -> Output {
+  // Input to Outputs pairing + Double Satisfaction Prevention
+  // Instead of pairing inputs and outputs (where manually setting outputs indexes could lead to double satisfaction)
+  // Here only inputs indexes are set, matched against the spend output ref, and outputs are expected to be in a determined position
+  let returning_out_index = in_index + num_batch_payments
+  expect Some(returning_output) = outputs |> list.at(returning_out_index)
+  returning_output
 }
 
 // The goal of this validator is to allow
@@ -258,6 +309,8 @@ validator(settings_policy_id: PolicyId) {
         // matching outputs. 
         // Payee outputs will have same index. Returning outputs will have index + num_payments
         // admin wallet change address will always be last.
+        // NOTE: tx w/o returning output can only be batched together as we can't mix tx w/ returning
+        // and not returning output as it will break validation
         expect Some(Input { output: in_utxo, output_reference: in_ref }) =
           inputs
             |> list.filter(
@@ -273,9 +326,7 @@ validator(settings_policy_id: PolicyId) {
         // Input to Outputs pairing + Double Satisfaction Prevention
         // Instead of pairing inputs and outputs (where manually setting outputs indexes could lead to double satisfaction)
         // Here only inputs indexes are set, matched against the spend output ref, and outputs are expected to be in a determined position
-        let returning_out_index = in_index + num_batch_payments
         expect Some(out_utxo) = outputs |> list.at(in_index)
-        expect Some(returning_output) = outputs |> list.at(returning_out_index)
 
         // Indicated input must match the spending one.
         expect (own_ref == in_ref)?
@@ -288,12 +339,12 @@ validator(settings_policy_id: PolicyId) {
           list.at(settings.authorised_operators, operator_index)
         // Ensure key has signed the tx
         expect list.has(tx.extra_signatories, operator_pkh)?
-
         run_validation(
           datum,
           in_utxo,
           out_utxo,
-          returning_output,
+          // delaying extraction of utxo as it might be absent
+          fn() { find_returning_output(in_index, num_batch_payments, outputs) },
           tx.validity_range,
           settings,
           fee_exempt_user_index,
