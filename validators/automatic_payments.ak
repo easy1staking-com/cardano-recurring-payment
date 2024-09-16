@@ -221,9 +221,9 @@ pub fn run_validation(
         let ada_expected_returning_amount =
           value.lovelace_of(expected_returning_amount)
         // If there are no tokens left and less than 1 ada, we don't check for returning output.
-        if
-        value.is_zero(token_expected_returning_amount) && ada_expected_returning_amount < 1_000_000{
-        
+        let no_tokens = value.is_zero(token_expected_returning_amount)
+        let less_than_min_utxo = ada_expected_returning_amount < 1_000_000
+        if no_tokens && less_than_min_utxo {
           True
         } else {
           is_returning_amount_correct(
@@ -309,6 +309,8 @@ validator(settings_policy_id: PolicyId) {
         // matching outputs. 
         // Payee outputs will have same index. Returning outputs will have index + num_payments
         // admin wallet change address will always be last.
+        // NOTE: tx w/o returning output can only be batched together as we can't mix tx w/ returning
+        // and not returning output as it will break validation
         expect Some(Input { output: in_utxo, output_reference: in_ref }) =
           inputs
             |> list.filter(
