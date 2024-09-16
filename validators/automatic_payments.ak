@@ -5,7 +5,7 @@ use aiken/transaction.{
   InlineDatum, Input, Output, ScriptContext, Spend, Transaction, ValidityRange,
 }
 use aiken/transaction/credential.{Address, ScriptCredential}
-use aiken/transaction/value.{PolicyId, add}
+use aiken/transaction/value.{PolicyId, Value, add}
 use types/automatic_payments.{
   Datum, ExecutePayment, Redeemer, Settings, Withdraw,
 } as automatic_payments_types
@@ -17,22 +17,16 @@ use types/automatic_payments.{
 // have not passed after datum.start_time.
 // In case of missing the payment slot, the bot is de facto stuck.
 pub fn is_payment_time_valid(self: Datum, validity_range: ValidityRange) -> Bool {
-  let is_start_time_valid =
-    when validity_range.lower_bound.bound_type is {
-      Finite(tx_earliest_time) -> self.start_time <= tx_earliest_time
-      _ -> False
-    }
+  expect Finite(tx_earliest_time) = validity_range.lower_bound.bound_type
+  let is_start_time_valid = self.start_time <= tx_earliest_time
 
   let is_end_time_valid =
     when self.max_payment_delay_hours is {
       None -> True
-      Some(max_delay_hours) ->
-        when validity_range.upper_bound.bound_type is {
-          Finite(tx_latest_time) ->
-            tx_latest_time < self.start_time + max_delay_hours * 60 * 60 * 1000
-
-          _ -> False
-        }
+      Some(max_delay_hours) -> {
+        expect Finite(tx_latest_time) = validity_range.upper_bound.bound_type
+        tx_latest_time <= self.start_time + to_millis(max_delay_hours)
+      }
     }
 
   let is_payment_deadline_valid =
@@ -50,7 +44,8 @@ pub fn is_payment_time_valid(self: Datum, validity_range: ValidityRange) -> Bool
 }
 
 fn to_millis(hours: Int) {
-  hours * 60 * 60 * 1_000
+  // hours * 60 * 60 * 1_000
+  hours * 3_600_000
 }
 
 pub fn compute_new_start_time(
@@ -82,36 +77,15 @@ pub fn load_settings(
   settings
 }
 
-pub fn run_validation(
-  datum: Datum,
+// check we're paying the right amount to the right adreess
+pub fn is_returning_amount_correct(
   locked_input: Output,
-  payee_output: Output,
   returning_output: Output,
-  validity_range: ValidityRange,
+  value_to_send: Value,
+  datum: Datum,
   settings: Settings,
   fee_exempt_user_index: Option<Int>,
 ) -> Bool {
-  // Build desired payee_address
-  let payee_address =
-    when datum.payee_stake_pkh is {
-      Some(stake_pkh) ->
-        datum.payee_payment_pkh
-          |> credential.from_verification_key
-          |> credential.with_delegation_key(stake_pkh)
-      None -> credential.from_verification_key(datum.payee_payment_pkh)
-    }
-  // Ensure payee_output address matches desired one
-  let is_payee_output_correct = payee_output.address == payee_address
-  // Building amount to send to payee
-  let value_to_send =
-    list.foldl(
-      datum.amount_to_send,
-      value.zero(),
-      fn(n, acc) { acc |> add(n.policy_id, n.asset_name, n.amount) },
-    )
-  // Check right amount is sent to payee
-  let must_pay_payee = payee_output.value == value_to_send
-
   // Check right amount is returned to the script, if stake address is specified, the address must be a mingled or franken address.
   expect ScriptCredential(script_hash) = locked_input.address.payment_credential
   let script_address =
@@ -124,13 +98,6 @@ pub fn run_validation(
     }
   // Ensure returning_output address matches desired one
   let is_returning_output_correct = returning_output.address == script_address
-
-  // Checking Timing is right
-  let is_tx_time_valid = datum |> is_payment_time_valid(validity_range)
-
-  // check max fee
-  let is_bot_fee_ok =
-    datum.max_fees_lovelace >= settings.operator_fee_lovelace + settings.base_fee_lovelace
 
   // Calculated the amount spent by the sender:
   // 1. bot operator fees (wich may be forfaited for specific users)
@@ -171,6 +138,60 @@ pub fn run_validation(
   let is_ada_returning_amount_correct =
     ada_returning_amount >= ada_expected_returning_amount
 
+  and {
+    is_returning_output_correct?,
+    is_ada_returning_amount_correct?,
+    is_token_returning_amount_correct?,
+  }
+}
+
+pub fn run_validation(
+  datum: Datum,
+  locked_input: Output,
+  payee_output: Output,
+  returning_output: Output,
+  validity_range: ValidityRange,
+  settings: Settings,
+  fee_exempt_user_index: Option<Int>,
+) -> Bool {
+  // Build desired payee_address
+  let payee_address =
+    when datum.payee_stake_pkh is {
+      Some(stake_pkh) ->
+        datum.payee_payment_pkh
+          |> credential.from_verification_key
+          |> credential.with_delegation_key(stake_pkh)
+      None -> credential.from_verification_key(datum.payee_payment_pkh)
+    }
+  // Ensure payee_output address matches desired one
+  let is_payee_output_correct = payee_output.address == payee_address
+  // Building amount to send to payee
+  let value_to_send =
+    list.foldl(
+      datum.amount_to_send,
+      value.zero(),
+      fn(n, acc) { acc |> add(n.policy_id, n.asset_name, n.amount) },
+    )
+  // Check right amount is sent to payee
+  let must_pay_payee = payee_output.value == value_to_send
+
+  let is_returning_amount_correct =
+    is_returning_amount_correct(
+      locked_input,
+      returning_output,
+      value_to_send,
+      datum,
+      settings,
+      fee_exempt_user_index,
+    )
+
+  // Checking Timing is right
+  let is_tx_time_valid = datum |> is_payment_time_valid(validity_range)
+
+  // check max fee
+  let is_bot_fee_ok =
+    datum.max_fees_lovelace >= settings.operator_fee_lovelace + settings.base_fee_lovelace
+
   // Check new datum is correct, only new start time can be updated.
   // TODO: it should not matter, but what if start time is set to after end time?
   let expected_datum =
@@ -189,9 +210,7 @@ pub fn run_validation(
   and {
     is_payee_output_correct?,
     must_pay_payee?,
-    is_returning_output_correct?,
-    is_token_returning_amount_correct?,
-    is_ada_returning_amount_correct?,
+    is_returning_amount_correct?,
     is_tx_time_valid?,
     is_bot_fee_ok?,
     is_valid_datum?,
