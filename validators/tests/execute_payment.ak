@@ -98,7 +98,7 @@ test is_returning_amount_correct_succeed() {
   let locked_input =
     Output {
       address,
-      value: value.from_lovelace(12_000_000),
+      value: value.zero(),
       datum: InlineDatum(datum),
       reference_script: None,
     }
@@ -119,6 +119,142 @@ test is_returning_amount_correct_succeed() {
     datum: datum,
     ada_expected_returning_amount: 5_000_000,
     token_expected_returning_amount: value.zero(),
+    payment_interval_hours: 1,
+    validity_range: between(1721164509000, 1721165409000),
+  )
+}
+
+test is_returning_amount_correct_succeed_with_token() {
+  let datum =
+    Datum {
+      ..datum_template(),
+      owner_payment_pkh: payment_pkh,
+      owner_stake_pkh: Some(staking_pkh),
+      start_time: 1721163789000,
+    }
+
+  let address =
+    credential.from_script(payment_pkh)
+      |> credential.with_delegation_key(staking_pkh)
+  let locked_input =
+    Output {
+      address,
+      value: value.zero(),
+      datum: InlineDatum(datum),
+      reference_script: None,
+    }
+
+  let returning_datum = Datum { ..datum, start_time: 1721167389000 }
+
+  let returning_output =
+    Output {
+      ..locked_input,
+      address: address,
+      value: value.from_lovelace(5_000_000) |> add(#"abba", #"abba", 10_000_000),
+      datum: InlineDatum(returning_datum),
+    }
+
+  is_returning_amount_correct(
+    locked_input: locked_input,
+    returning_output: returning_output,
+    datum: datum,
+    ada_expected_returning_amount: 5_000_000,
+    token_expected_returning_amount: value.from_asset(
+      #"abba",
+      #"abba",
+      10_000_000,
+    ),
+    payment_interval_hours: 1,
+    validity_range: between(1721164509000, 1721165409000),
+  )
+}
+
+test is_returning_amount_correct_fail_address() {
+  let datum =
+    Datum {
+      ..datum_template(),
+      owner_payment_pkh: payment_pkh,
+      owner_stake_pkh: Some(staking_pkh),
+      start_time: 1721163789000,
+    }
+
+  let address =
+    credential.from_script(payment_pkh)
+      |> credential.with_delegation_key(staking_pkh)
+  let locked_input =
+    Output {
+      address,
+      value: value.zero(),
+      datum: InlineDatum(datum),
+      reference_script: None,
+    }
+
+  let returning_datum = Datum { ..datum, start_time: 1721167389000 }
+
+  let returning_output =
+    Output {
+      ..locked_input,
+      address: credential.from_script(payment_pkh_1)
+        |> credential.with_delegation_key(staking_pkh),
+      value: value.from_lovelace(5_000_000) |> add(#"abba", #"abba", 10_000_000),
+      datum: InlineDatum(returning_datum),
+    }
+
+  !is_returning_amount_correct(
+    locked_input: locked_input,
+    returning_output: returning_output,
+    datum: datum,
+    ada_expected_returning_amount: 5_000_000,
+    token_expected_returning_amount: value.from_asset(
+      #"abba",
+      #"abba",
+      10_000_000,
+    ),
+    payment_interval_hours: 1,
+    validity_range: between(1721164509000, 1721165409000),
+  )
+}
+
+test is_returning_amount_correct_fail_start_time() {
+  let datum =
+    Datum {
+      ..datum_template(),
+      owner_payment_pkh: payment_pkh,
+      owner_stake_pkh: Some(staking_pkh),
+      start_time: 1721163789000,
+    }
+
+  let address =
+    credential.from_script(payment_pkh)
+      |> credential.with_delegation_key(staking_pkh)
+  let locked_input =
+    Output {
+      address,
+      value: value.zero(),
+      datum: InlineDatum(datum),
+      reference_script: None,
+    }
+
+  let returning_datum = Datum { ..datum, start_time: 1721167380000 }
+
+  let returning_output =
+    Output {
+      ..locked_input,
+      address: address,
+      value: value.from_lovelace(5_000_000) |> add(#"abba", #"abba", 10_000_000),
+      datum: InlineDatum(returning_datum),
+    }
+
+  !is_returning_amount_correct(
+    locked_input: locked_input,
+    returning_output: returning_output,
+    datum: datum,
+    ada_expected_returning_amount: 5_000_000,
+    token_expected_returning_amount: value.from_asset(
+      #"abba",
+      #"abba",
+      10_000_000,
+    ),
     payment_interval_hours: 1,
     validity_range: between(1721164509000, 1721165409000),
   )

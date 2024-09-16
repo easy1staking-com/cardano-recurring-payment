@@ -1,5 +1,3 @@
-use aiken/bytearray
-use aiken/cbor
 use aiken/interval.{Finite, Interval, IntervalBound}
 use aiken/list
 use aiken/time.{PosixTime}
@@ -79,6 +77,75 @@ pub fn load_settings(
   settings
 }
 
+pub fn is_returning_output_correct(
+  locked_input: Output,
+  returning_output_opt: Option<Output>,
+  datum: Datum,
+  settings: Settings,
+  value_to_send: Value,
+  fee_exempt_user_index: Option<Int>,
+  validity_range: ValidityRange,
+) -> Bool {
+  // Must check that, if expected, there's a payment back into the contract
+  // In case of non-recurring payments, we don't care
+  // In case or recurring payments, the right amount must be paid back to the contract,
+  // with the exception of the last payment where there's not enough for min_utxo.
+  when datum.payment_interval_hours is {
+    Some(payment_interval_hours) -> {
+      // Calculated the amount spent by the sender:
+      // 1. bot operator fees (wich may be forfaited for specific users)
+      // 2. base fee
+      // 3. payment amount
+      // FIXME: Theoretically, if someone sets up a payment w/ pkh of a fee exempt user, they might
+      // take advantage of free payments, but they won't be able to withdraw the funds and actually give control
+      // to someone else.
+      let operator_fee_lovelaces =
+        when fee_exempt_user_index is {
+          Some(user_index) -> {
+            expect Some(user_pk) =
+              list.at(settings.operator_fee_exempt_users, user_index)
+            expect user_pk == datum.owner_payment_pkh
+            value.zero()
+          }
+          _ -> value.from_lovelace(settings.operator_fee_lovelace)
+        }
+      // Maximum spent amount.
+      let spent_amount =
+        value.from_lovelace(settings.base_fee_lovelace)
+          |> value.merge(operator_fee_lovelaces)
+          |> value.merge(value_to_send)
+          |> value.negate
+      // Expected minimum amount (token + ada) that must be returned.
+      let expected_returning_amount =
+        value.merge(locked_input.value, spent_amount)
+      // Split value in tokens and lovelaces
+      // Returned tokens must match exactly between expected and actual
+      let token_expected_returning_amount =
+        value.without_lovelace(expected_returning_amount)
+      let ada_expected_returning_amount =
+        value.lovelace_of(expected_returning_amount)
+      // If there are no tokens left and less than 1 ada, we don't check for returning output.
+      let no_tokens = value.is_zero(token_expected_returning_amount)
+      let less_than_min_utxo = ada_expected_returning_amount < 1_000_000
+      if no_tokens && less_than_min_utxo {
+        True
+      } else {
+        expect Some(returning_output) = returning_output_opt
+        is_returning_amount_correct(
+          locked_input,
+          returning_output,
+          datum,
+          ada_expected_returning_amount,
+          token_expected_returning_amount,
+          payment_interval_hours,
+          validity_range,
+        )
+      }
+    }
+    _ -> True
+  }
+}
+
 // check we're paying the right amount to the right adreess
 pub fn is_returning_amount_correct(
   locked_input: Output,
@@ -99,12 +166,6 @@ pub fn is_returning_amount_correct(
       None -> credential.from_script(script_hash)
     }
 
-  let foo = cbor.serialise(returning_output.address)
-  let bar = cbor.serialise(script_address)
-  let foofoo = bytearray.to_hex(foo)
-  let barbar = bytearray.to_hex(bar)
-  trace foofoo
-  trace barbar
   // Ensure returning_output address matches desired one
   let is_returning_address_correct = returning_output.address == script_address
 
@@ -190,65 +251,16 @@ pub fn run_validation(
   let is_payment_correct =
     is_payment_correct(value_to_send, payee_output, datum)
 
-  // Must check that, if expected, there's a payment back into the contract
-  // In case of non-recurring payments, we don't care
-  // In case or recurring payments, the right amount must be paid back to the contract,
-  // with the exception of the last payment where there's not enough for min_utxo.
   let is_returning_output_correct =
-    when datum.payment_interval_hours is {
-      Some(payment_interval_hours) -> {
-        // Calculated the amount spent by the sender:
-        // 1. bot operator fees (wich may be forfaited for specific users)
-        // 2. base fee
-        // 3. payment amount
-        // FIXME: Theoretically, if someone sets up a payment w/ pkh of a fee exempt user, they might
-        // take advantage of free payments, but they won't be able to withdraw the funds and actually give control
-        // to someone else.
-        let operator_fee_lovelaces =
-          when fee_exempt_user_index is {
-            Some(user_index) -> {
-              expect Some(user_pk) =
-                list.at(settings.operator_fee_exempt_users, user_index)
-              expect user_pk == datum.owner_payment_pkh
-              value.zero()
-            }
-            _ -> value.from_lovelace(settings.operator_fee_lovelace)
-          }
-        // Maximum spent amount.
-        let spent_amount =
-          value.from_lovelace(settings.base_fee_lovelace)
-            |> value.merge(operator_fee_lovelaces)
-            |> value.merge(value_to_send)
-            |> value.negate
-        // Expected minimum amount (token + ada) that must be returned.
-        let expected_returning_amount =
-          value.merge(locked_input.value, spent_amount)
-        // Split value in tokens and lovelaces
-        // Returned tokens must match exactly between expected and actual
-        let token_expected_returning_amount =
-          value.without_lovelace(expected_returning_amount)
-        let ada_expected_returning_amount =
-          value.lovelace_of(expected_returning_amount)
-        // If there are no tokens left and less than 1 ada, we don't check for returning output.
-        let no_tokens = value.is_zero(token_expected_returning_amount)
-        let less_than_min_utxo = ada_expected_returning_amount < 1_000_000
-        if no_tokens && less_than_min_utxo {
-          True
-        } else {
-          expect Some(returning_output) = returning_output_opt
-          is_returning_amount_correct(
-            locked_input,
-            returning_output,
-            datum,
-            ada_expected_returning_amount,
-            token_expected_returning_amount,
-            payment_interval_hours,
-            validity_range,
-          )
-        }
-      }
-      _ -> True
-    }
+    is_returning_output_correct(
+      locked_input,
+      returning_output_opt,
+      datum,
+      settings,
+      value_to_send,
+      fee_exempt_user_index,
+      validity_range,
+    )
 
   // Checking Timing is right
   let is_tx_time_valid = datum |> is_payment_time_valid(validity_range)
@@ -343,7 +355,6 @@ validator(settings_policy_id: PolicyId) {
           datum,
           in_utxo,
           out_utxo,
-          // delaying extraction of utxo as it might be absent
           returning_output_opt,
           tx.validity_range,
           settings,
