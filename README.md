@@ -1,14 +1,17 @@
 # cardano-recurring-payment
 
-This contract aims to facilitate the execution of recurring payments.
+This contract aims to facilitate the execution of automated payments, being them recurring or once off..
 
-Users can lock funds in a contract, define the payee, the amount, the time of the first payment and then the cadence.
+Users can lock funds in a contract, define the payee, the amount, the time of the first payment and, optionally, then the cadence.
 
 The contract makes use of a configuration datum locked at a ref input and guarded by an NFT.
 
 The configuration will contain:
+* the admin key
 * the pkh of the authorised bot
+* fees exempt pkh
 * the bot operators fee
+* base fees
 
 ## The HOSKY use case
 
@@ -33,14 +36,14 @@ unlock the funds and:
 
 ## Known issues:
 
-* Double Satisfaction (working already on solving it with either withdraw 0 or output index)
+* Double Satisfaction (this should be now fixed using input to output mapping)
 
 ## Current Features
 
 * Send any combination of ada or native assets
-* Payment frequency: hours, days, epoch, weeks, yearly. Month not available because no calendar feature is available in plutus
-* Funds to be used for automated payments, are still staked
-* User can withdraw their funds at any given time
+* Payment frequency: hours between payments
+* Funds locked in the contract can be sent to a franked address allowing staking
+* User can withdraw their funds at any time
 * User can specify exact time window to perform payment
 * User specify max fee they want to pay per tx. This is necessary to prevent protocol to update fee to a value too high for customers
 * Along with the time of the first payment, user can specify an end date. Combination of frequency and end date will allow to

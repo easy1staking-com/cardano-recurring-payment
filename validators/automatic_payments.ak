@@ -338,6 +338,7 @@ validator(settings_policy_id: PolicyId) {
         expect Some(out_utxo) = outputs |> list.at(in_index)
 
         let returning_out_index = in_index + num_batch_payments
+        // This can be None..., but if it must be some, will fail later.
         let returning_output_opt = outputs |> list.at(returning_out_index)
 
         // Indicated input must match the spending one.
