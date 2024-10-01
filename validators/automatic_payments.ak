@@ -79,13 +79,43 @@ pub fn load_settings(
   settings
 }
 
+pub fn calculate_spent_amount(
+  fee_exempt_user_index: Option<Int>,
+  settings: Settings,
+  datum: AutomatedPayment,
+  value_to_send: Value,
+) -> Value {
+  // Calculated the amount spent by the sender:
+  // 1. bot operator fees (wich may be forfaited for specific users)
+  // 2. base fee
+  // 3. payment amount
+  // FIXME: Theoretically, if someone sets up a payment w/ pkh of a fee exempt user, they might
+  // take advantage of free payments, but they won't be able to withdraw the funds and actually give control
+  // to someone else.
+  let operator_fee_lovelaces =
+    when fee_exempt_user_index is {
+      Some(user_index) -> {
+        expect Some(user_pk) =
+          list.at(settings.operator_fee_exempt_users, user_index)
+        expect user_pk == datum.owner_payment_pkh
+        assets.zero
+      }
+      _ -> assets.from_lovelace(settings.operator_fee_lovelace)
+    }
+  // Maximum spent amount.
+  let spent_amount =
+    assets.from_lovelace(settings.base_fee_lovelace)
+      |> assets.merge(operator_fee_lovelaces)
+      |> assets.merge(value_to_send)
+      |> assets.negate
+  spent_amount
+}
+
 pub fn is_returning_output_correct(
   locked_input: Output,
   returning_output_opt: Option<Output>,
   datum: AutomatedPayment,
-  settings: Settings,
-  value_to_send: Value,
-  fee_exempt_user_index: Option<Int>,
+  spent_amount: Value,
   validity_range: ValidityRange,
 ) -> Bool {
   // Must check that, if expected, there's a payment back into the contract
@@ -94,29 +124,6 @@ pub fn is_returning_output_correct(
   // with the exception of the last payment where there's not enough for min_utxo.
   when datum.payment_interval_hours is {
     Some(payment_interval_hours) -> {
-      // Calculated the amount spent by the sender:
-      // 1. bot operator fees (wich may be forfaited for specific users)
-      // 2. base fee
-      // 3. payment amount
-      // FIXME: Theoretically, if someone sets up a payment w/ pkh of a fee exempt user, they might
-      // take advantage of free payments, but they won't be able to withdraw the funds and actually give control
-      // to someone else.
-      let operator_fee_lovelaces =
-        when fee_exempt_user_index is {
-          Some(user_index) -> {
-            expect Some(user_pk) =
-              list.at(settings.operator_fee_exempt_users, user_index)
-            expect user_pk == datum.owner_payment_pkh
-            assets.zero
-          }
-          _ -> assets.from_lovelace(settings.operator_fee_lovelace)
-        }
-      // Maximum spent amount.
-      let spent_amount =
-        assets.from_lovelace(settings.base_fee_lovelace)
-          |> assets.merge(operator_fee_lovelaces)
-          |> assets.merge(value_to_send)
-          |> assets.negate
       // Expected minimum amount (token + ada) that must be returned.
       let expected_returning_amount =
         assets.merge(locked_input.value, spent_amount)
@@ -238,6 +245,15 @@ pub fn is_payment_correct(
   }
 }
 
+pub fn enough_funds_locked(locked_input: Output, spent_amount: Value) -> Bool {
+  assets.negate(spent_amount)
+    |> assets.merge(locked_input.value)
+    |> assets.reduce(
+        True,
+        fn(_policyId, _assetName, amount, result) { amount >= 0 && result },
+      )
+}
+
 pub fn run_validation(
   datum: AutomatedPayment,
   locked_input: Output,
@@ -249,6 +265,17 @@ pub fn run_validation(
 ) -> Bool {
   // Building amount to send to payee
   let value_to_send = compute_value_to_send(datum.amount_to_send)
+
+  let spent_amount =
+    calculate_spent_amount(
+      fee_exempt_user_index,
+      settings,
+      datum,
+      value_to_send,
+    )
+
+  let is_enough_funds_locked = enough_funds_locked(locked_input, spent_amount)
+
   // Check if actual payment is executed
   let is_payment_correct =
     is_payment_correct(value_to_send, payee_output, datum)
@@ -258,9 +285,7 @@ pub fn run_validation(
       locked_input,
       returning_output_opt,
       datum,
-      settings,
-      value_to_send,
-      fee_exempt_user_index,
+      spent_amount,
       validity_range,
     )
 
@@ -272,6 +297,7 @@ pub fn run_validation(
     datum.max_fees_lovelace >= settings.operator_fee_lovelace + settings.base_fee_lovelace
 
   and {
+    is_enough_funds_locked?,
     is_payment_correct?,
     is_returning_output_correct?,
     is_tx_time_valid?,
@@ -309,6 +335,11 @@ validator automatic_payments(settings_policy_id: PolicyId) {
       } -> {
         let Transaction { inputs, outputs, .. } = tx
 
+        expect Some(input) =
+          inputs
+            |> transaction.find_input(own_ref)
+        expect Script(ownScriptHash) = input.output.address.payment_credential
+
         // Filtering non-scripts inputs out, so to get rid of supporting
         // wallet utxos used to cover for tx and collect protocol fees in case of 
         // minutxo < ~1ada
@@ -323,7 +354,7 @@ validator automatic_payments(settings_policy_id: PolicyId) {
             |> list.filter(
                 fn(input) {
                   when input.output.address.payment_credential is {
-                    Script(_) -> True
+                    Script(hash) -> hash == ownScriptHash
                     _ -> False
                   }
                 },
