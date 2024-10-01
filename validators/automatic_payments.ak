@@ -1,6 +1,6 @@
 use aiken/collection/list
 use aiken/interval.{Finite, Interval, IntervalBound}
-use cardano/address.{Address, Script}
+use cardano/address.{Address, Inline, Script, VerificationKey}
 use cardano/assets.{PolicyId, Value, add}
 use cardano/transaction.{
   InlineDatum, Input, Output, OutputReference, Transaction, ValidityRange,
@@ -97,7 +97,12 @@ pub fn calculate_spent_amount(
       Some(user_index) -> {
         expect Some(user_pk) =
           list.at(settings.operator_fee_exempt_users, user_index)
-        expect user_pk == datum.owner_payment_pkh
+        let actual_hash =
+          when datum.owner.payment_credential is {
+            VerificationKey(payment_credential_hash) -> payment_credential_hash
+            Script(script_hash) -> script_hash
+          }
+        expect user_pk == actual_hash
         assets.zero
       }
       _ -> assets.from_lovelace(settings.operator_fee_lovelace)
@@ -168,11 +173,18 @@ pub fn is_returning_amount_correct(
   // Check right amount is returned to the script, if stake address is specified, the address must be a mingled or franken address.
   expect Script(script_hash) = locked_input.address.payment_credential
   let script_address =
-    when datum.owner_stake_pkh is {
-      Some(stake_pkh) ->
-        address.from_script(script_hash)
-          |> address.with_delegation_key(stake_pkh)
-      None -> address.from_script(script_hash)
+    when datum.owner.stake_credential is {
+      Some(Inline(stake_credential)) ->
+        when stake_credential is {
+          VerificationKey(key_hash) ->
+            address.from_script(script_hash)
+              |> address.with_delegation_key(key_hash)
+          Script(script_hash) ->
+            address.from_script(script_hash)
+              |> address.with_delegation_script(script_hash)
+        }
+
+      _ -> address.from_script(script_hash)
     }
 
   // Ensure returning_output address matches desired one
@@ -227,19 +239,9 @@ pub fn is_payment_correct(
   payee_output: Output,
   datum: AutomatedPayment,
 ) -> Bool {
-  // Build desired payee_address
-  let payee_address =
-    when datum.payee_stake_pkh is {
-      Some(stake_pkh) ->
-        datum.payee_payment_pkh
-          |> address.from_verification_key
-          |> address.with_delegation_key(stake_pkh)
-      None -> address.from_verification_key(datum.payee_payment_pkh)
-    }
-
   and {
     // Ensure payee_output address matches desired one
-    payee_output.address == payee_address,
+    payee_output.address == datum.payee,
     // Check right amount is sent to payee
     payee_output.value == value_to_send,
   }
@@ -323,8 +325,13 @@ validator automatic_payments(settings_policy_id: PolicyId) {
       // Owner can spend anytime. 
       Withdraw -> {
         expect Some(actual_datum) = datum
+        let crendetials_hash =
+          when actual_datum.owner.payment_credential is {
+            VerificationKey(key_hash) -> key_hash
+            Script(script_hash) -> script_hash
+          }
         let must_be_signed_by_owner =
-          list.has(tx.extra_signatories, actual_datum.owner_payment_pkh)
+          list.has(tx.extra_signatories, crendetials_hash)
         must_be_signed_by_owner
       }
       ExecutePayment {

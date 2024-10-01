@@ -1,12 +1,11 @@
+use cardano/address
 use types/automatic_payments.{AutomatedPayment}
 
 pub fn datum_template() {
   AutomatedPayment(
-    #"",
-    None,
+    address.from_verification_key(#""),
     [],
-    #"",
-    None,
+    address.from_verification_key(#""),
     1719835200000,
     None,
     Some(1),

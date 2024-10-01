@@ -32,7 +32,7 @@ test automatic_payments_succeed_withdraw() {
   let datum =
     AutomatedPayment {
       ..datum_template(),
-      owner_payment_pkh: payment_pkh,
+      owner: address.from_verification_key(payment_pkh),
       start_time: 1719835200000,
     }
   let output_reference = OutputReference("", 0)
@@ -51,7 +51,7 @@ test automatic_payments_fail_withdraw() {
   let datum =
     AutomatedPayment {
       ..datum_template(),
-      owner_payment_pkh: payment_pkh,
+      owner: address.from_verification_key(payment_pkh),
       start_time: 1719835200000,
     }
   let output_reference = OutputReference("", 0)
@@ -70,8 +70,8 @@ test is_returning_amount_correct_succeed() {
   let datum =
     AutomatedPayment {
       ..datum_template(),
-      owner_payment_pkh: payment_pkh,
-      owner_stake_pkh: Some(staking_pkh),
+      owner: address.from_verification_key(payment_pkh)
+        |> address.with_delegation_key(staking_pkh),
       start_time: 1721163789000,
     }
 
@@ -111,8 +111,8 @@ test is_returning_amount_correct_succeed_with_token() {
   let datum =
     AutomatedPayment {
       ..datum_template(),
-      owner_payment_pkh: payment_pkh,
-      owner_stake_pkh: Some(staking_pkh),
+      owner: address.from_verification_key(payment_pkh)
+        |> address.with_delegation_key(staking_pkh),
       start_time: 1721163789000,
     }
 
@@ -157,8 +157,8 @@ test is_returning_amount_correct_fail_address() {
   let datum =
     AutomatedPayment {
       ..datum_template(),
-      owner_payment_pkh: payment_pkh,
-      owner_stake_pkh: Some(staking_pkh),
+      owner: address.from_verification_key(payment_pkh)
+        |> address.with_delegation_key(staking_pkh),
       start_time: 1721163789000,
     }
 
@@ -204,8 +204,8 @@ test is_returning_amount_correct_fail_start_time() {
   let datum =
     AutomatedPayment {
       ..datum_template(),
-      owner_payment_pkh: payment_pkh,
-      owner_stake_pkh: Some(staking_pkh),
+      owner: address.from_verification_key(payment_pkh)
+        |> address.with_delegation_key(staking_pkh),
       start_time: 1721163789000,
     }
 
@@ -303,8 +303,8 @@ test is_payment_correct_succeed() {
   let datum =
     AutomatedPayment {
       ..datum_template(),
-      payee_payment_pkh: payment_pkh,
-      payee_stake_pkh: Some(staking_pkh),
+      payee: address.from_verification_key(payment_pkh)
+        |> address.with_delegation_key(staking_pkh),
     }
   is_payment_correct(
     value_to_send: assets.from_lovelace(5_000_000),
@@ -323,8 +323,8 @@ test is_payment_correct_fails_amount() {
   let datum =
     AutomatedPayment {
       ..datum_template(),
-      payee_payment_pkh: payment_pkh,
-      payee_stake_pkh: Some(staking_pkh),
+      payee: address.from_verification_key(payment_pkh)
+        |> address.with_delegation_key(staking_pkh),
     }
   !is_payment_correct(
     value_to_send: assets.from_lovelace(15_000_000),
@@ -343,8 +343,8 @@ test is_payment_correct_fails_staking_address() {
   let datum =
     AutomatedPayment {
       ..datum_template(),
-      payee_payment_pkh: payment_pkh,
-      payee_stake_pkh: Some(staking_pkh),
+      payee: address.from_verification_key(payment_pkh)
+        |> address.with_delegation_key(staking_pkh),
     }
   !is_payment_correct(
     value_to_send: assets.from_lovelace(5_000_000),
@@ -362,8 +362,8 @@ test is_payment_correct_fails_payment_address() {
   let datum =
     AutomatedPayment {
       ..datum_template(),
-      payee_payment_pkh: payment_pkh,
-      payee_stake_pkh: Some(staking_pkh),
+      payee: address.from_verification_key(payment_pkh)
+        |> address.with_delegation_key(staking_pkh),
     }
   !is_payment_correct(
     value_to_send: assets.from_lovelace(5_000_000),

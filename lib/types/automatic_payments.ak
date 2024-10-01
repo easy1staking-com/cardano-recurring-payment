@@ -1,4 +1,5 @@
 use aiken/crypto.{Blake2b_224, Hash, VerificationKey}
+use cardano/address.{Address}
 use cardano/assets.{AssetName, PolicyId}
 
 pub type AssetAmount {
@@ -8,16 +9,13 @@ pub type AssetAmount {
 }
 
 pub type AutomatedPayment {
-  /// The funds owner 
-  owner_payment_pkh: Hash<Blake2b_224, VerificationKey>,
-  /// The optional (?) stake address of the sender mingled address
-  owner_stake_pkh: Option<Hash<Blake2b_224, VerificationKey>>,
+  // The funds owner: payment credentials used to cancel order
+  // Optional stake credentials to create and maintain franken address  
+  owner: Address,
   /// Value to sent periodically
   amount_to_send: List<AssetAmount>,
   /// Destination address Payment pub key
-  payee_payment_pkh: Hash<Blake2b_224, VerificationKey>,
-  /// Destination address Staking pub key (optional)
-  payee_stake_pkh: Option<Hash<Blake2b_224, VerificationKey>>,
+  payee: Address,
   /// Starting Date Time. Namely time of the first payment should be made
   start_time: Int,
   /// If specified, no more payments must be made after end date. This can be used to determine how many payments to make (start_time + (N + 1) * payment_frequency)
