@@ -6,7 +6,7 @@ use cardano/transaction.{
   InlineDatum, Input, Output, OutputReference, Transaction, ValidityRange,
 }
 use types/automatic_payments.{
-  AssetAmount, Datum, ExecutePayment, Redeemer, Settings, Withdraw,
+  AssetAmount, AutomatedPayment, ExecutePayment, Redeemer, Settings, Withdraw,
 } as automatic_payments_types
 
 // Sending funds must happen after a certain moment in time has passed, but also,
@@ -15,7 +15,10 @@ use types/automatic_payments.{
 // Example2: tx can be sent anytime after datum.start_time, but before datum.max_payment_delay_hours
 // have not passed after datum.start_time.
 // In case of missing the payment slot, the bot is de facto stuck.
-pub fn is_payment_time_valid(self: Datum, validity_range: ValidityRange) -> Bool {
+pub fn is_payment_time_valid(
+  self: AutomatedPayment,
+  validity_range: ValidityRange,
+) -> Bool {
   expect Finite(tx_earliest_time) = validity_range.lower_bound.bound_type
   let is_start_time_valid = self.start_time <= tx_earliest_time
 
@@ -79,7 +82,7 @@ pub fn load_settings(
 pub fn is_returning_output_correct(
   locked_input: Output,
   returning_output_opt: Option<Output>,
-  datum: Datum,
+  datum: AutomatedPayment,
   settings: Settings,
   value_to_send: Value,
   fee_exempt_user_index: Option<Int>,
@@ -149,7 +152,7 @@ pub fn is_returning_output_correct(
 pub fn is_returning_amount_correct(
   locked_input: Output,
   returning_output: Output,
-  datum: Datum,
+  datum: AutomatedPayment,
   ada_expected_returning_amount: Int,
   token_expected_returning_amount: Value,
   payment_interval_hours: Int,
@@ -182,7 +185,7 @@ pub fn is_returning_amount_correct(
   // Check new datum is correct, only new start time can be updated.
   // TODO: it should not matter, but what if start time is set to after end time?
   let expected_datum =
-    Datum {
+    AutomatedPayment {
       ..datum,
       start_time: compute_new_start_time(
         datum.start_time,
@@ -191,7 +194,7 @@ pub fn is_returning_amount_correct(
       ),
     }
   expect InlineDatum(data) = returning_output.datum
-  expect actual_datum: Datum = data
+  expect actual_datum: AutomatedPayment = data
 
   let is_output_datum_correct = expected_datum == actual_datum
 
@@ -215,7 +218,7 @@ pub fn compute_value_to_send(amount_to_send: List<AssetAmount>) -> Value {
 pub fn is_payment_correct(
   value_to_send: Value,
   payee_output: Output,
-  datum: Datum,
+  datum: AutomatedPayment,
 ) -> Bool {
   // Build desired payee_address
   let payee_address =
@@ -236,7 +239,7 @@ pub fn is_payment_correct(
 }
 
 pub fn run_validation(
-  datum: Datum,
+  datum: AutomatedPayment,
   locked_input: Output,
   payee_output: Output,
   returning_output_opt: Option<Output>,
@@ -285,7 +288,7 @@ pub fn run_validation(
 // 6. prepare for next timed payment (if supposed to - end_time)
 validator automatic_payments(settings_policy_id: PolicyId) {
   spend(
-    datum: Option<Datum>,
+    datum: Option<AutomatedPayment>,
     redeemer: Redeemer,
     own_ref: OutputReference,
     tx: Transaction,

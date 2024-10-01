@@ -12,7 +12,7 @@ use cardano/transaction.{
 }
 use tests/fixtures.{datum_template}
 use types/automatic_payments.{AssetAmount,
-  Datum, Settings, Withdraw} as automatic_payments_types
+  AutomatedPayment, Settings, Withdraw} as automatic_payments_types
 
 const payment_pkh = #"4f0f62955aaac98d8ffc1d26279cfafc9cbf46f44225e269bbe29560"
 
@@ -29,7 +29,7 @@ const bot_payment_pkh =
 
 test automatic_payments_succeed_withdraw() {
   let datum =
-    Datum {
+    AutomatedPayment {
       ..datum_template(),
       owner_payment_pkh: payment_pkh,
       start_time: 1719835200000,
@@ -48,7 +48,7 @@ test automatic_payments_succeed_withdraw() {
 
 test automatic_payments_fail_withdraw() {
   let datum =
-    Datum {
+    AutomatedPayment {
       ..datum_template(),
       owner_payment_pkh: payment_pkh,
       start_time: 1719835200000,
@@ -67,7 +67,7 @@ test automatic_payments_fail_withdraw() {
 
 test is_returning_amount_correct_succeed() {
   let datum =
-    Datum {
+    AutomatedPayment {
       ..datum_template(),
       owner_payment_pkh: payment_pkh,
       owner_stake_pkh: Some(staking_pkh),
@@ -85,7 +85,7 @@ test is_returning_amount_correct_succeed() {
       reference_script: None,
     }
 
-  let returning_datum = Datum { ..datum, start_time: 1721167389000 }
+  let returning_datum = AutomatedPayment { ..datum, start_time: 1721167389000 }
 
   let returning_output =
     Output {
@@ -108,7 +108,7 @@ test is_returning_amount_correct_succeed() {
 
 test is_returning_amount_correct_succeed_with_token() {
   let datum =
-    Datum {
+    AutomatedPayment {
       ..datum_template(),
       owner_payment_pkh: payment_pkh,
       owner_stake_pkh: Some(staking_pkh),
@@ -126,7 +126,7 @@ test is_returning_amount_correct_succeed_with_token() {
       reference_script: None,
     }
 
-  let returning_datum = Datum { ..datum, start_time: 1721167389000 }
+  let returning_datum = AutomatedPayment { ..datum, start_time: 1721167389000 }
 
   let returning_output =
     Output {
@@ -154,7 +154,7 @@ test is_returning_amount_correct_succeed_with_token() {
 
 test is_returning_amount_correct_fail_address() {
   let datum =
-    Datum {
+    AutomatedPayment {
       ..datum_template(),
       owner_payment_pkh: payment_pkh,
       owner_stake_pkh: Some(staking_pkh),
@@ -172,7 +172,7 @@ test is_returning_amount_correct_fail_address() {
       reference_script: None,
     }
 
-  let returning_datum = Datum { ..datum, start_time: 1721167389000 }
+  let returning_datum = AutomatedPayment { ..datum, start_time: 1721167389000 }
 
   let returning_output =
     Output {
@@ -201,7 +201,7 @@ test is_returning_amount_correct_fail_address() {
 
 test is_returning_amount_correct_fail_start_time() {
   let datum =
-    Datum {
+    AutomatedPayment {
       ..datum_template(),
       owner_payment_pkh: payment_pkh,
       owner_stake_pkh: Some(staking_pkh),
@@ -219,7 +219,7 @@ test is_returning_amount_correct_fail_start_time() {
       reference_script: None,
     }
 
-  let returning_datum = Datum { ..datum, start_time: 1721167380000 }
+  let returning_datum = AutomatedPayment { ..datum, start_time: 1721167380000 }
 
   let returning_output =
     Output {
@@ -300,7 +300,7 @@ test compute_value_to_send_token_ada_fail() {
 
 test is_payment_correct_succeed() {
   let datum =
-    Datum {
+    AutomatedPayment {
       ..datum_template(),
       payee_payment_pkh: payment_pkh,
       payee_stake_pkh: Some(staking_pkh),
@@ -320,7 +320,7 @@ test is_payment_correct_succeed() {
 
 test is_payment_correct_fails_amount() {
   let datum =
-    Datum {
+    AutomatedPayment {
       ..datum_template(),
       payee_payment_pkh: payment_pkh,
       payee_stake_pkh: Some(staking_pkh),
@@ -340,7 +340,7 @@ test is_payment_correct_fails_amount() {
 
 test is_payment_correct_fails_staking_address() {
   let datum =
-    Datum {
+    AutomatedPayment {
       ..datum_template(),
       payee_payment_pkh: payment_pkh,
       payee_stake_pkh: Some(staking_pkh),
@@ -359,7 +359,7 @@ test is_payment_correct_fails_staking_address() {
 
 test is_payment_correct_fails_payment_address() {
   let datum =
-    Datum {
+    AutomatedPayment {
       ..datum_template(),
       payee_payment_pkh: payment_pkh,
       payee_stake_pkh: Some(staking_pkh),
@@ -379,18 +379,18 @@ test is_payment_correct_fails_payment_address() {
 
 // Validity time/interval tests
 test is_payment_time_valid_succeed_start_time_only() {
-  let datum = Datum { ..datum_template(), start_time: 1719835200000 }
+  let datum = AutomatedPayment { ..datum_template(), start_time: 1719835200000 }
   is_payment_time_valid(datum, after(1719838800000))
 }
 
 test is_payment_time_valid_succeed_start_time_only_interval() {
-  let datum = Datum { ..datum_template(), start_time: 1719835200000 }
+  let datum = AutomatedPayment { ..datum_template(), start_time: 1719835200000 }
   is_payment_time_valid(datum, between(1719838800000, 1719849600000))
 }
 
 test is_payment_time_valid_succeed_start_time_and_max_delay() {
   let datum =
-    Datum {
+    AutomatedPayment {
       ..datum_template(),
       start_time: 1719835200000,
       max_payment_delay_hours: Some(5),
@@ -400,7 +400,7 @@ test is_payment_time_valid_succeed_start_time_and_max_delay() {
 
 test is_payment_time_valid_succeed_start_time_overlap_and_max_delay() {
   let datum =
-    Datum {
+    AutomatedPayment {
       ..datum_template(),
       start_time: 1719835200000,
       max_payment_delay_hours: Some(5),
@@ -410,7 +410,7 @@ test is_payment_time_valid_succeed_start_time_overlap_and_max_delay() {
 
 test is_payment_time_valid_fail_start_time_and_max_delay_overlap() {
   let datum =
-    Datum {
+    AutomatedPayment {
       ..datum_template(),
       start_time: 1719835200000,
       max_payment_delay_hours: Some(5),
@@ -420,7 +420,7 @@ test is_payment_time_valid_fail_start_time_and_max_delay_overlap() {
 
 test is_payment_time_valid_fail_earlier_start_time_must_fail() fail {
   let datum =
-    Datum {
+    AutomatedPayment {
       ..datum_template(),
       start_time: 1719835200000,
       max_payment_delay_hours: Some(5),
@@ -431,7 +431,7 @@ test is_payment_time_valid_fail_earlier_start_time_must_fail() fail {
 // Add Valid interval test, no max hours and end_time and everything still works
 test is_payment_time_valid_succeed_start_time_and_time() {
   let datum =
-    Datum {
+    AutomatedPayment {
       ..datum_template(),
       start_time: 1719835200000,
       end_time: Some(1720699200000),
@@ -443,7 +443,7 @@ test is_payment_time_valid_succeed_start_time_and_time() {
 // Add Valid interval test, with max hours and end_time and everything still works
 test is_payment_time_valid_succeed_start_time_and_time_max_hours() {
   let datum =
-    Datum {
+    AutomatedPayment {
       ..datum_template(),
       start_time: 1719835200000,
       max_payment_delay_hours: Some(5),
@@ -455,7 +455,7 @@ test is_payment_time_valid_succeed_start_time_and_time_max_hours() {
 // Add Fail interval test, with max hours and end_time and it fails because of max hours
 test is_payment_time_valid_fail_start_time_and_time_and_fail_max_hours() {
   let datum =
-    Datum {
+    AutomatedPayment {
       ..datum_template(),
       start_time: 1719835200000,
       max_payment_delay_hours: Some(5),
@@ -467,7 +467,7 @@ test is_payment_time_valid_fail_start_time_and_time_and_fail_max_hours() {
 // Add Fail interval test, it will initially pass, but then after code it should fail
 test is_payment_time_valid_fail_start_time_and_end_time_and_fail_end_time() {
   let datum =
-    Datum {
+    AutomatedPayment {
       ..datum_template(),
       start_time: 1719835200000,
       max_payment_delay_hours: Some(5),

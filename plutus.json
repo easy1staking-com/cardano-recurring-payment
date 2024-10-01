@@ -16,7 +16,7 @@
       "datum": {
         "title": "datum",
         "schema": {
-          "$ref": "#/definitions/types~1automatic_payments~1Datum"
+          "$ref": "#/definitions/types~1automatic_payments~1AutomatedPayment"
         }
       },
       "redeemer": {
@@ -230,11 +230,11 @@
         }
       ]
     },
-    "types/automatic_payments/Datum": {
-      "title": "Datum",
+    "types/automatic_payments/AutomatedPayment": {
+      "title": "AutomatedPayment",
       "anyOf": [
         {
-          "title": "Datum",
+          "title": "AutomatedPayment",
           "dataType": "constructor",
           "index": 0,
           "fields": [

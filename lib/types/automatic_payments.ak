@@ -7,7 +7,7 @@ pub type AssetAmount {
   amount: Int,
 }
 
-pub type Datum {
+pub type AutomatedPayment {
   /// The funds owner 
   owner_payment_pkh: Hash<Blake2b_224, VerificationKey>,
   /// The optional (?) stake address of the sender mingled address

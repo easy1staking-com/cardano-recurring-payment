@@ -8,23 +8,23 @@ aiken() {
 
 # exit 0
 
-# aiken build -t verbose &> /dev/null
-aiken build &> /dev/null
+aiken build -t verbose &> /dev/null
+# aiken build &> /dev/null
 
 ## PREPROD ##
 
-PREPROD_PROTOCOL_BOOT_UTXO="d8799fd8799f5820dfa5892f4623b8fbe0aaab204b33c93bab0bb6a8e655d1b61aa333222fac7c64ff00ff"
+PREPROD_PROTOCOL_BOOT_UTXO="D8799F5820F7AB6DE61468C99E2112919BA48E9717FD219C4A98E5958992214BB715274EAD00FF"
 PREPROD_SETTINGS_POLICY_ID="581c92ab0d02e2a5de7ef53393e8f352e6123b86268860d4359951423df2"
 
 ## Settings
-aiken blueprint apply -v settings.spend $PREPROD_PROTOCOL_BOOT_UTXO 2> /dev/null > tmp
+aiken blueprint apply -v settings.settings.spend $PREPROD_PROTOCOL_BOOT_UTXO 2> /dev/null > tmp
 mv tmp preprod-spend-settings-plutus.json
 
-aiken blueprint apply -v settings.mint $PREPROD_PROTOCOL_BOOT_UTXO 2> /dev/null > tmp
+aiken blueprint apply -v settings.settings.mint $PREPROD_PROTOCOL_BOOT_UTXO 2> /dev/null > tmp
 mv tmp preprod-mint-settings-plutus.json
 
 ## Recurring payment
-aiken blueprint apply -v automatic_payments.automatic_payments $PREPROD_SETTINGS_POLICY_ID 2> /dev/null > tmp
+aiken blueprint apply -v automatic_payments.automatic_payments.spend $PREPROD_SETTINGS_POLICY_ID 2> /dev/null > tmp
 mv tmp preprod-automatic-payments-plutus.json
 
 ## MAINNET ##
