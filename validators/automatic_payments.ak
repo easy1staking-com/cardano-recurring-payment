@@ -1,11 +1,10 @@
+use aiken/collection/list
 use aiken/interval.{Finite, Interval, IntervalBound}
-use aiken/list
-use aiken/time.{PosixTime}
-use aiken/transaction.{
-  InlineDatum, Input, Output, ScriptContext, Spend, Transaction, ValidityRange,
+use cardano/address.{Address, Script}
+use cardano/assets.{PolicyId, Value, add}
+use cardano/transaction.{
+  InlineDatum, Input, Output, OutputReference, Transaction, ValidityRange,
 }
-use aiken/transaction/credential.{Address, ScriptCredential}
-use aiken/transaction/value.{PolicyId, Value, add}
 use types/automatic_payments.{
   AssetAmount, Datum, ExecutePayment, Redeemer, Settings, Withdraw,
 } as automatic_payments_types
@@ -49,10 +48,10 @@ fn to_millis(hours: Int) {
 }
 
 pub fn compute_new_start_time(
-  start_time: PosixTime,
+  start_time: Int,
   payment_interval_hours: Int,
   validity_range: ValidityRange,
-) -> PosixTime {
+) -> Int {
   expect Finite(lower_bound) = validity_range.lower_bound.bound_type
   let k = ( lower_bound - start_time ) / to_millis(payment_interval_hours) + 1
 
@@ -68,7 +67,7 @@ pub fn load_settings(
       |> list.find(
           fn(input) {
             input.output.value
-              |> value.flatten()
+              |> assets.flatten()
               |> list.any(fn(asset) { asset.1st == settings_policy_id })
           },
         )
@@ -105,27 +104,27 @@ pub fn is_returning_output_correct(
             expect Some(user_pk) =
               list.at(settings.operator_fee_exempt_users, user_index)
             expect user_pk == datum.owner_payment_pkh
-            value.zero()
+            assets.zero
           }
-          _ -> value.from_lovelace(settings.operator_fee_lovelace)
+          _ -> assets.from_lovelace(settings.operator_fee_lovelace)
         }
       // Maximum spent amount.
       let spent_amount =
-        value.from_lovelace(settings.base_fee_lovelace)
-          |> value.merge(operator_fee_lovelaces)
-          |> value.merge(value_to_send)
-          |> value.negate
+        assets.from_lovelace(settings.base_fee_lovelace)
+          |> assets.merge(operator_fee_lovelaces)
+          |> assets.merge(value_to_send)
+          |> assets.negate
       // Expected minimum amount (token + ada) that must be returned.
       let expected_returning_amount =
-        value.merge(locked_input.value, spent_amount)
+        assets.merge(locked_input.value, spent_amount)
       // Split value in tokens and lovelaces
       // Returned tokens must match exactly between expected and actual
       let token_expected_returning_amount =
-        value.without_lovelace(expected_returning_amount)
+        assets.without_lovelace(expected_returning_amount)
       let ada_expected_returning_amount =
-        value.lovelace_of(expected_returning_amount)
+        assets.lovelace_of(expected_returning_amount)
       // If there are no tokens left and less than 1 ada, we don't check for returning output.
-      let no_tokens = value.is_zero(token_expected_returning_amount)
+      let no_tokens = assets.is_zero(token_expected_returning_amount)
       let less_than_min_utxo = ada_expected_returning_amount < 1_000_000
       if no_tokens && less_than_min_utxo {
         True
@@ -157,25 +156,25 @@ pub fn is_returning_amount_correct(
   validity_range: ValidityRange,
 ) -> Bool {
   // Check right amount is returned to the script, if stake address is specified, the address must be a mingled or franken address.
-  expect ScriptCredential(script_hash) = locked_input.address.payment_credential
+  expect Script(script_hash) = locked_input.address.payment_credential
   let script_address =
     when datum.owner_stake_pkh is {
       Some(stake_pkh) ->
-        credential.from_script(script_hash)
-          |> credential.with_delegation_key(stake_pkh)
-      None -> credential.from_script(script_hash)
+        address.from_script(script_hash)
+          |> address.with_delegation_key(stake_pkh)
+      None -> address.from_script(script_hash)
     }
 
   // Ensure returning_output address matches desired one
   let is_returning_address_correct = returning_output.address == script_address
 
   // Ensure at least a certain amount of ada is returned
-  let ada_returning_amount = value.lovelace_of(returning_output.value)
+  let ada_returning_amount = assets.lovelace_of(returning_output.value)
   let is_ada_returning_amount_correct =
     ada_returning_amount >= ada_expected_returning_amount
 
   // Ensure the exact amount of token is returned. If any.
-  let token_returning_amount = value.without_lovelace(returning_output.value)
+  let token_returning_amount = assets.without_lovelace(returning_output.value)
   let is_token_returning_amount_correct =
     token_expected_returning_amount == token_returning_amount
 
@@ -207,7 +206,7 @@ pub fn is_returning_amount_correct(
 pub fn compute_value_to_send(amount_to_send: List<AssetAmount>) -> Value {
   list.foldl(
     amount_to_send,
-    value.zero(),
+    assets.zero,
     fn(n, acc) { acc |> add(n.policy_id, n.asset_name, n.amount) },
   )
 }
@@ -223,9 +222,9 @@ pub fn is_payment_correct(
     when datum.payee_stake_pkh is {
       Some(stake_pkh) ->
         datum.payee_payment_pkh
-          |> credential.from_verification_key
-          |> credential.with_delegation_key(stake_pkh)
-      None -> credential.from_verification_key(datum.payee_payment_pkh)
+          |> address.from_verification_key
+          |> address.with_delegation_key(stake_pkh)
+      None -> address.from_verification_key(datum.payee_payment_pkh)
     }
 
   and {
@@ -284,20 +283,19 @@ pub fn run_validation(
 // 4. optionally within a certain delay
 // 5. return remaining funds (minus fees) to same script address + desired optional stake address
 // 6. prepare for next timed payment (if supposed to - end_time)
-validator(settings_policy_id: PolicyId) {
-  pub fn automatic_payments(
-    datum: Datum,
+validator automatic_payments(settings_policy_id: PolicyId) {
+  spend(
+    datum: Option<Datum>,
     redeemer: Redeemer,
-    context: ScriptContext,
-  ) -> Bool {
+    own_ref: OutputReference,
+    tx: Transaction,
+  ) {
     when redeemer is {
       // Owner can spend anytime. 
       Withdraw -> {
+        expect Some(actual_datum) = datum
         let must_be_signed_by_owner =
-          list.has(
-            context.transaction.extra_signatories,
-            datum.owner_payment_pkh,
-          )
+          list.has(tx.extra_signatories, actual_datum.owner_payment_pkh)
         must_be_signed_by_owner
       }
       ExecutePayment {
@@ -306,9 +304,6 @@ validator(settings_policy_id: PolicyId) {
         operator_index,
         fee_exempt_user_index,
       } -> {
-        expect ScriptContext { transaction: tx, purpose: Spend(own_ref) } =
-          context
-
         let Transaction { inputs, outputs, .. } = tx
 
         // Filtering non-scripts inputs out, so to get rid of supporting
@@ -325,7 +320,7 @@ validator(settings_policy_id: PolicyId) {
             |> list.filter(
                 fn(input) {
                   when input.output.address.payment_credential is {
-                    ScriptCredential(_) -> True
+                    Script(_) -> True
                     _ -> False
                   }
                 },
@@ -352,8 +347,9 @@ validator(settings_policy_id: PolicyId) {
           list.at(settings.authorised_operators, operator_index)
         // Ensure key has signed the tx
         expect list.has(tx.extra_signatories, operator_pkh)?
+        expect Some(actual_datum) = datum
         run_validation(
-          datum,
+          actual_datum,
           in_utxo,
           out_utxo,
           returning_output_opt,
@@ -363,5 +359,9 @@ validator(settings_policy_id: PolicyId) {
         )
       }
     }
+  }
+
+  else(_) {
+    fail
   }
 }

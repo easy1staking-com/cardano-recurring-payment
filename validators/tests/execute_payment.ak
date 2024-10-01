@@ -1,16 +1,14 @@
-use aiken/bytearray
 use aiken/cbor
 use aiken/interval.{after, between}
-use aiken/transaction.{
-  InlineDatum, Input, NoDatum, Output, OutputReference, ScriptContext, Spend,
-  Transaction, TransactionId,
-}
-use aiken/transaction/credential
-use aiken/transaction/value.{PolicyId, add}
+use aiken/primitive/bytearray
 use automatic_payments.{
-  automatic_payments, compute_new_start_time, compute_value_to_send,
-  is_payment_correct, is_payment_time_valid, is_returning_amount_correct,
-  load_settings,
+  compute_new_start_time, compute_value_to_send, is_payment_correct,
+  is_payment_time_valid, is_returning_amount_correct, load_settings,
+}
+use cardano/address
+use cardano/assets.{add}
+use cardano/transaction.{
+  InlineDatum, Input, NoDatum, Output, OutputReference, Transaction, placeholder,
 }
 use tests/fixtures.{datum_template}
 use types/automatic_payments.{AssetAmount,
@@ -36,23 +34,15 @@ test automatic_payments_succeed_withdraw() {
       owner_payment_pkh: payment_pkh,
       start_time: 1719835200000,
     }
+  let output_reference = OutputReference("", 0)
   let transaction =
-    Transaction {
-      ..transaction.placeholder(),
-      extra_signatories: [payment_pkh],
-    }
-  let context =
-    ScriptContext {
-      purpose: Spend(
-        OutputReference { transaction_id: TransactionId(""), output_index: 0 },
-      ),
-      transaction,
-    }
-  automatic_payments(
-    #"00000000000000000000000000000000000000000000000000000000",
-    datum,
+    Transaction { ..placeholder, extra_signatories: [payment_pkh] }
+  automatic_payments.automatic_payments.spend(
+    #"",
+    Some(datum),
     Withdraw,
-    context,
+    output_reference,
+    transaction,
   )
 }
 
@@ -63,23 +53,15 @@ test automatic_payments_fail_withdraw() {
       owner_payment_pkh: payment_pkh,
       start_time: 1719835200000,
     }
+  let output_reference = OutputReference("", 0)
   let transaction =
-    Transaction {
-      ..transaction.placeholder(),
-      extra_signatories: [payment_pkh_1],
-    }
-  let context =
-    ScriptContext {
-      purpose: Spend(
-        OutputReference { transaction_id: TransactionId(""), output_index: 0 },
-      ),
-      transaction,
-    }
-  !automatic_payments(
-    #"00000000000000000000000000000000000000000000000000000000",
-    datum,
+    Transaction { ..placeholder, extra_signatories: [payment_pkh_1] }
+  !automatic_payments.automatic_payments.spend(
+    #"",
+    Some(datum),
     Withdraw,
-    context,
+    output_reference,
+    transaction,
   )
 }
 
@@ -93,12 +75,12 @@ test is_returning_amount_correct_succeed() {
     }
 
   let address =
-    credential.from_script(payment_pkh)
-      |> credential.with_delegation_key(staking_pkh)
+    address.from_script(payment_pkh)
+      |> address.with_delegation_key(staking_pkh)
   let locked_input =
     Output {
       address,
-      value: value.zero(),
+      value: assets.zero,
       datum: InlineDatum(datum),
       reference_script: None,
     }
@@ -109,7 +91,7 @@ test is_returning_amount_correct_succeed() {
     Output {
       ..locked_input,
       address: address,
-      value: value.from_lovelace(5_000_000),
+      value: assets.from_lovelace(5_000_000),
       datum: InlineDatum(returning_datum),
     }
 
@@ -118,7 +100,7 @@ test is_returning_amount_correct_succeed() {
     returning_output: returning_output,
     datum: datum,
     ada_expected_returning_amount: 5_000_000,
-    token_expected_returning_amount: value.zero(),
+    token_expected_returning_amount: assets.zero,
     payment_interval_hours: 1,
     validity_range: between(1721164509000, 1721165409000),
   )
@@ -134,12 +116,12 @@ test is_returning_amount_correct_succeed_with_token() {
     }
 
   let address =
-    credential.from_script(payment_pkh)
-      |> credential.with_delegation_key(staking_pkh)
+    address.from_script(payment_pkh)
+      |> address.with_delegation_key(staking_pkh)
   let locked_input =
     Output {
       address,
-      value: value.zero(),
+      value: assets.zero,
       datum: InlineDatum(datum),
       reference_script: None,
     }
@@ -150,7 +132,8 @@ test is_returning_amount_correct_succeed_with_token() {
     Output {
       ..locked_input,
       address: address,
-      value: value.from_lovelace(5_000_000) |> add(#"abba", #"abba", 10_000_000),
+      value: assets.from_lovelace(5_000_000)
+        |> add(#"abba", #"abba", 10_000_000),
       datum: InlineDatum(returning_datum),
     }
 
@@ -159,7 +142,7 @@ test is_returning_amount_correct_succeed_with_token() {
     returning_output: returning_output,
     datum: datum,
     ada_expected_returning_amount: 5_000_000,
-    token_expected_returning_amount: value.from_asset(
+    token_expected_returning_amount: assets.from_asset(
       #"abba",
       #"abba",
       10_000_000,
@@ -179,12 +162,12 @@ test is_returning_amount_correct_fail_address() {
     }
 
   let address =
-    credential.from_script(payment_pkh)
-      |> credential.with_delegation_key(staking_pkh)
+    address.from_script(payment_pkh)
+      |> address.with_delegation_key(staking_pkh)
   let locked_input =
     Output {
       address,
-      value: value.zero(),
+      value: assets.zero,
       datum: InlineDatum(datum),
       reference_script: None,
     }
@@ -194,9 +177,10 @@ test is_returning_amount_correct_fail_address() {
   let returning_output =
     Output {
       ..locked_input,
-      address: credential.from_script(payment_pkh_1)
-        |> credential.with_delegation_key(staking_pkh),
-      value: value.from_lovelace(5_000_000) |> add(#"abba", #"abba", 10_000_000),
+      address: address.from_script(payment_pkh_1)
+        |> address.with_delegation_key(staking_pkh),
+      value: assets.from_lovelace(5_000_000)
+        |> add(#"abba", #"abba", 10_000_000),
       datum: InlineDatum(returning_datum),
     }
 
@@ -205,7 +189,7 @@ test is_returning_amount_correct_fail_address() {
     returning_output: returning_output,
     datum: datum,
     ada_expected_returning_amount: 5_000_000,
-    token_expected_returning_amount: value.from_asset(
+    token_expected_returning_amount: assets.from_asset(
       #"abba",
       #"abba",
       10_000_000,
@@ -225,12 +209,12 @@ test is_returning_amount_correct_fail_start_time() {
     }
 
   let address =
-    credential.from_script(payment_pkh)
-      |> credential.with_delegation_key(staking_pkh)
+    address.from_script(payment_pkh)
+      |> address.with_delegation_key(staking_pkh)
   let locked_input =
     Output {
       address,
-      value: value.zero(),
+      value: assets.zero,
       datum: InlineDatum(datum),
       reference_script: None,
     }
@@ -241,7 +225,8 @@ test is_returning_amount_correct_fail_start_time() {
     Output {
       ..locked_input,
       address: address,
-      value: value.from_lovelace(5_000_000) |> add(#"abba", #"abba", 10_000_000),
+      value: assets.from_lovelace(5_000_000)
+        |> add(#"abba", #"abba", 10_000_000),
       datum: InlineDatum(returning_datum),
     }
 
@@ -250,7 +235,7 @@ test is_returning_amount_correct_fail_start_time() {
     returning_output: returning_output,
     datum: datum,
     ada_expected_returning_amount: 5_000_000,
-    token_expected_returning_amount: value.from_asset(
+    token_expected_returning_amount: assets.from_asset(
       #"abba",
       #"abba",
       10_000_000,
@@ -263,13 +248,13 @@ test is_returning_amount_correct_fail_start_time() {
 test compute_value_to_send_zero() {
   let value_to_send = compute_value_to_send([])
 
-  value.is_zero(value_to_send)
+  assets.is_zero(value_to_send)
 }
 
 test compute_value_to_send_simple_1_ada() {
   let value_to_send = compute_value_to_send([AssetAmount(#"", #"", 1_000_000)])
 
-  value_to_send == value.from_lovelace(1_000_000)
+  value_to_send == assets.from_lovelace(1_000_000)
 }
 
 test compute_value_to_send_simple_2_times_1_ada() {
@@ -278,7 +263,7 @@ test compute_value_to_send_simple_2_times_1_ada() {
       [AssetAmount(#"", #"", 1_000_000), AssetAmount(#"", #"", 1_000_000)],
     )
 
-  value_to_send == value.from_lovelace(2_000_000)
+  value_to_send == assets.from_lovelace(2_000_000)
 }
 
 test compute_value_to_send_token_ada() {
@@ -292,7 +277,7 @@ test compute_value_to_send_token_ada() {
     )
 
   let expected_value_to_send =
-    value.from_lovelace(2_000_000) |> value.add(#"abba", #"abba", 5_000_000)
+    assets.from_lovelace(2_000_000) |> assets.add(#"abba", #"abba", 5_000_000)
 
   actual_value_to_send == expected_value_to_send
 }
@@ -308,7 +293,7 @@ test compute_value_to_send_token_ada_fail() {
     )
 
   let expected_value_to_send =
-    value.from_lovelace(2_000_000) |> value.add(#"abba", #"abba", 5_000_000)
+    assets.from_lovelace(2_000_000) |> assets.add(#"abba", #"abba", 5_000_000)
 
   actual_value_to_send != expected_value_to_send
 }
@@ -321,11 +306,11 @@ test is_payment_correct_succeed() {
       payee_stake_pkh: Some(staking_pkh),
     }
   is_payment_correct(
-    value_to_send: value.from_lovelace(5_000_000),
+    value_to_send: assets.from_lovelace(5_000_000),
     payee_output: Output {
-      address: credential.from_verification_key(payment_pkh)
-        |> credential.with_delegation_key(staking_pkh),
-      value: value.from_lovelace(5_000_000),
+      address: address.from_verification_key(payment_pkh)
+        |> address.with_delegation_key(staking_pkh),
+      value: assets.from_lovelace(5_000_000),
       datum: NoDatum,
       reference_script: None,
     },
@@ -341,11 +326,11 @@ test is_payment_correct_fails_amount() {
       payee_stake_pkh: Some(staking_pkh),
     }
   !is_payment_correct(
-    value_to_send: value.from_lovelace(15_000_000),
+    value_to_send: assets.from_lovelace(15_000_000),
     payee_output: Output {
-      address: credential.from_verification_key(payment_pkh)
-        |> credential.with_delegation_key(staking_pkh),
-      value: value.from_lovelace(5_000_000),
+      address: address.from_verification_key(payment_pkh)
+        |> address.with_delegation_key(staking_pkh),
+      value: assets.from_lovelace(5_000_000),
       datum: NoDatum,
       reference_script: None,
     },
@@ -361,10 +346,10 @@ test is_payment_correct_fails_staking_address() {
       payee_stake_pkh: Some(staking_pkh),
     }
   !is_payment_correct(
-    value_to_send: value.from_lovelace(5_000_000),
+    value_to_send: assets.from_lovelace(5_000_000),
     payee_output: Output {
-      address: credential.from_verification_key(payment_pkh),
-      value: value.from_lovelace(5_000_000),
+      address: address.from_verification_key(payment_pkh),
+      value: assets.from_lovelace(5_000_000),
       datum: NoDatum,
       reference_script: None,
     },
@@ -380,11 +365,11 @@ test is_payment_correct_fails_payment_address() {
       payee_stake_pkh: Some(staking_pkh),
     }
   !is_payment_correct(
-    value_to_send: value.from_lovelace(5_000_000),
+    value_to_send: assets.from_lovelace(5_000_000),
     payee_output: Output {
-      address: credential.from_verification_key(payment_pkh_1)
-        |> credential.with_delegation_key(staking_pkh),
-      value: value.from_lovelace(5_000_000),
+      address: address.from_verification_key(payment_pkh_1)
+        |> address.with_delegation_key(staking_pkh),
+      value: assets.from_lovelace(5_000_000),
       datum: NoDatum,
       reference_script: None,
     },
@@ -542,7 +527,7 @@ test compute_new_start_time_end_time_skip_1h() {
 
 // Testing Settings
 test load_configuration_fail_no_ref_inputs() fail {
-  let transaction: Transaction = transaction.placeholder()
+  let transaction: Transaction = placeholder
   let configuration =
     load_settings(
       transaction,
@@ -552,17 +537,17 @@ test load_configuration_fail_no_ref_inputs() fail {
 }
 
 test load_configuration_fail_missing_configuration_ref_input() fail {
-  let address = payment_pkh_1 |> credential.from_verification_key
+  let address = payment_pkh_1 |> address.from_verification_key
 
   let transaction =
     Transaction {
-      ..transaction.placeholder(),
+      ..placeholder,
       reference_inputs: [
         Input(
-          OutputReference(TransactionId(#""), 0),
+          OutputReference(#"", 0),
           Output {
             address,
-            value: value.from_lovelace(10_000_000),
+            value: assets.from_lovelace(10_000_000),
             datum: NoDatum,
             reference_script: None,
           },
@@ -579,26 +564,26 @@ test load_configuration_fail_missing_configuration_ref_input() fail {
 }
 
 test load_configuration_fail_no_datum() fail {
-  let address = payment_pkh_1 |> credential.from_verification_key
+  let address = payment_pkh_1 |> address.from_verification_key
 
   let transaction =
     Transaction {
-      ..transaction.placeholder(),
+      ..placeholder,
       reference_inputs: [
         Input(
-          OutputReference(TransactionId(#""), 0),
+          OutputReference(#"", 0),
           Output {
             address,
-            value: value.from_lovelace(10_000_000),
+            value: assets.from_lovelace(10_000_000),
             datum: NoDatum,
             reference_script: None,
           },
         ),
         Input(
-          OutputReference(TransactionId(#""), 0),
+          OutputReference(#"", 0),
           Output {
             address,
-            value: value.from_lovelace(10_000_000)
+            value: assets.from_lovelace(10_000_000)
               |> add(
                   #"00000000000000000000000000000000000000000000000000000000",
                   "settings",
@@ -620,27 +605,27 @@ test load_configuration_fail_no_datum() fail {
 }
 
 test load_configuration_succeed() {
-  let address = payment_pkh_1 |> credential.from_verification_key
+  let address = payment_pkh_1 |> address.from_verification_key
   let expected_configuration =
     Settings(bot_payment_pkh, [bot_payment_pkh], [], 1_000_000, 360_000)
   let transaction =
     Transaction {
-      ..transaction.placeholder(),
+      ..placeholder,
       reference_inputs: [
         Input(
-          OutputReference(TransactionId(#""), 0),
+          OutputReference(#"", 0),
           Output {
             address,
-            value: value.from_lovelace(10_000_000),
+            value: assets.from_lovelace(10_000_000),
             datum: NoDatum,
             reference_script: None,
           },
         ),
         Input(
-          OutputReference(TransactionId(#""), 0),
+          OutputReference(#"", 0),
           Output {
             address,
-            value: value.from_lovelace(10_000_000)
+            value: assets.from_lovelace(10_000_000)
               |> add(
                   #"00000000000000000000000000000000000000000000000000000000",
                   "settings",
@@ -662,10 +647,8 @@ test load_configuration_succeed() {
 }
 
 test serialise_settings_policy_id() {
-  let settings_policy_id: PolicyId =
-    #"92ab0d02e2a5de7ef53393e8f352e6123b86268860d4359951423df2"
-  let policy_id_cbor = cbor.serialise(settings_policy_id)
-  let serialised_settings_policy_id = bytearray.to_hex(policy_id_cbor)
-  trace serialised_settings_policy_id
+  trace cbor.serialise(
+    #"92ab0d02e2a5de7ef53393e8f352e6123b86268860d4359951423df2",
+  )
   True
 }
