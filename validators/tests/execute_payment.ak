@@ -2,8 +2,9 @@ use aiken/cbor
 use aiken/interval.{after, between}
 use aiken/primitive/bytearray
 use automatic_payments.{
-  compute_new_start_time, compute_value_to_send, is_payment_correct,
-  is_payment_time_valid, is_returning_amount_correct, load_settings,
+  compute_new_start_time, compute_value_to_send, enough_funds_locked,
+  is_payment_correct, is_payment_time_valid, is_returning_amount_correct,
+  load_settings,
 }
 use cardano/address
 use cardano/assets.{add}
@@ -645,6 +646,52 @@ test load_configuration_succeed() {
     )
   actual_configuration == expected_configuration
 }
+
+// Enough funds locked
+test enough_funds_locked_suceed_gt() {
+  enough_funds_locked(
+    Output(
+      address.from_verification_key(#""),
+      assets.from_lovelace(2_000_000),
+      NoDatum,
+      None,
+    ),
+    assets.from_lovelace(1_000_000),
+  )
+}
+
+test enough_funds_locked_suceed_eq() {
+  enough_funds_locked(
+    Output(
+      address.from_verification_key(#""),
+      assets.from_lovelace(1_000_000),
+      NoDatum,
+      None,
+    ),
+    assets.from_lovelace(1_000_000),
+  )
+}
+
+test enough_funds_locked_fails_not_enough_ada() {
+  !enough_funds_locked(
+    Output(
+      address.from_verification_key(#""),
+      assets.from_lovelace(1_000_000),
+      NoDatum,
+      None,
+    ),
+    assets.from_lovelace(5_000_000),
+  )
+}
+
+// pub fn enough_funds_locked(locked_input: Output, spent_amount: Value) -> Bool {
+//   assets.negate(spent_amount)
+//     |> assets.merge(locked_input.value)
+//     |> assets.reduce(
+//         True,
+//         fn(_policyId, _assetName, amount, result) { amount >= 0 && result },
+//       )
+// }
 
 test serialise_settings_policy_id() {
   trace cbor.serialise(
