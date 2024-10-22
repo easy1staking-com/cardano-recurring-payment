@@ -30,6 +30,7 @@ pub type AutomatedPayment {
 
 pub type Redeemer {
   Withdraw
+  RescueFunds
   ExecutePayment {
     in_index: Int,
     num_batch_payments: Int,

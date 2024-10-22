@@ -6,7 +6,8 @@ use cardano/transaction.{
   InlineDatum, Input, Output, OutputReference, Transaction, ValidityRange,
 }
 use types/automatic_payments.{
-  AssetAmount, AutomatedPayment, ExecutePayment, Redeemer, Settings, Withdraw,
+  AssetAmount, AutomatedPayment, ExecutePayment, Redeemer, RescueFunds, Settings,
+  Withdraw,
 } as automatic_payments_types
 
 // Sending funds must happen after a certain moment in time has passed, but also,
@@ -334,12 +335,19 @@ validator automatic_payments(settings_policy_id: PolicyId) {
           list.has(tx.extra_signatories, crendetials_hash)
         must_be_signed_by_owner
       }
+      RescueFunds -> {
+        expect None = datum
+        let settings = load_settings(tx, settings_policy_id)
+        // Ensure key has signed the tx
+        list.has(tx.extra_signatories, settings.setting_admin_pkh)?
+      }
       ExecutePayment {
         in_index,
         num_batch_payments,
         operator_index,
         fee_exempt_user_index,
       } -> {
+        expect Some(actual_datum) = datum
         let Transaction { inputs, outputs, .. } = tx
 
         expect Some(input) =
@@ -388,7 +396,6 @@ validator automatic_payments(settings_policy_id: PolicyId) {
           list.at(settings.authorised_operators, operator_index)
         // Ensure key has signed the tx
         expect list.has(tx.extra_signatories, operator_pkh)?
-        expect Some(actual_datum) = datum
         run_validation(
           actual_datum,
           in_utxo,

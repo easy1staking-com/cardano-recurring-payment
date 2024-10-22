@@ -12,8 +12,9 @@ use cardano/transaction.{
   InlineDatum, Input, NoDatum, Output, OutputReference, Transaction, placeholder,
 }
 use tests/fixtures.{datum_template}
-use types/automatic_payments.{AssetAmount,
-  AutomatedPayment, Settings, Withdraw} as automatic_payments_types
+use types/automatic_payments.{
+  AssetAmount, AutomatedPayment, ExecutePayment, RescueFunds, Settings, Withdraw,
+} as automatic_payments_types
 
 const payment_pkh = #"4f0f62955aaac98d8ffc1d26279cfafc9cbf46f44225e269bbe29560"
 
@@ -27,6 +28,9 @@ const payment_pkh_1 =
 
 const bot_payment_pkh =
   #"018f6b977da177061ad00cf4ef14f429ebc7befb40a843314e7575d9"
+
+const settings_policy_id =
+  #"581ccfaf54b77c8bbd8e3ce9a0afcbcc51f02f484c583760f70bf873a21d"
 
 test automatic_payments_succeed_withdraw() {
   let datum =
@@ -695,7 +699,96 @@ test enough_funds_locked_fails_not_enough_ada() {
 
 test serialise_settings_policy_id() {
   trace cbor.serialise(
-    #"92ab0d02e2a5de7ef53393e8f352e6123b86268860d4359951423df2",
+    #"cfaf54b77c8bbd8e3ce9a0afcbcc51f02f484c583760f70bf873a21d",
   )
   True
+}
+
+// Testing No Datum Spending Actions
+test automatic_payments_succeed_no_datum_withdraw_fail() fail {
+  let output_reference = OutputReference("", 0)
+  let transaction =
+    Transaction { ..placeholder, extra_signatories: [payment_pkh] }
+  automatic_payments.automatic_payments.spend(
+    #"",
+    None,
+    Withdraw,
+    output_reference,
+    transaction,
+  )
+}
+
+test automatic_payments_succeed_no_datum_execute_payment_fail() fail {
+  let output_reference = OutputReference("", 0)
+  let transaction =
+    Transaction { ..placeholder, extra_signatories: [payment_pkh] }
+  automatic_payments.automatic_payments.spend(
+    #"",
+    None,
+    ExecutePayment(0, 0, 0, None),
+    output_reference,
+    transaction,
+  )
+}
+
+test automatic_payments_succeed_datum_rescue_funds_fail() fail {
+  let datum =
+    AutomatedPayment {
+      ..datum_template(),
+      owner: address.from_verification_key(payment_pkh),
+      start_time: 1719835200000,
+    }
+  let input =
+    Input {
+      output_reference: OutputReference("", 0),
+      output: Output {
+        address: address.from_verification_key(settings_policy_id),
+        value: assets.from_asset(settings_policy_id, "settings", 1),
+        datum: InlineDatum(Settings(payment_pkh, [], [], 0, 0)),
+        reference_script: None,
+      },
+    }
+
+  let output_reference = OutputReference("", 0)
+  let transaction =
+    Transaction {
+      ..placeholder,
+      reference_inputs: [input],
+      extra_signatories: [payment_pkh],
+    }
+  automatic_payments.automatic_payments.spend(
+    settings_policy_id,
+    Some(datum),
+    RescueFunds,
+    output_reference,
+    transaction,
+  )
+}
+
+test automatic_payments_succeed_no_datum_succeed_rescue_funds() {
+  let input =
+    Input {
+      output_reference: OutputReference("", 0),
+      output: Output {
+        address: address.from_verification_key(settings_policy_id),
+        value: assets.from_asset(settings_policy_id, "settings", 1),
+        datum: InlineDatum(Settings(payment_pkh, [], [], 0, 0)),
+        reference_script: None,
+      },
+    }
+
+  let output_reference = OutputReference("", 0)
+  let transaction =
+    Transaction {
+      ..placeholder,
+      reference_inputs: [input],
+      extra_signatories: [payment_pkh],
+    }
+  automatic_payments.automatic_payments.spend(
+    settings_policy_id,
+    None,
+    RescueFunds,
+    output_reference,
+    transaction,
+  )
 }
