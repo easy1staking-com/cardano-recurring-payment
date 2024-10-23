@@ -697,13 +697,6 @@ test enough_funds_locked_fails_not_enough_ada() {
 //       )
 // }
 
-test serialise_settings_policy_id() {
-  trace cbor.serialise(
-    #"cfaf54b77c8bbd8e3ce9a0afcbcc51f02f484c583760f70bf873a21d",
-  )
-  True
-}
-
 // Testing No Datum Spending Actions
 test automatic_payments_succeed_no_datum_withdraw_fail() fail {
   let output_reference = OutputReference("", 0)
@@ -791,4 +784,11 @@ test automatic_payments_succeed_no_datum_succeed_rescue_funds() {
     output_reference,
     transaction,
   )
+}
+
+test serialise_settings_policy_id() {
+  trace cbor.serialise(
+    #"d8eba846aaef90ff9a5c23c4648695d10707d9a5a27df121c11e3961",
+  )
+  True
 }
