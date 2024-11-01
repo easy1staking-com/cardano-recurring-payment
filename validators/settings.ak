@@ -1,13 +1,11 @@
 use aiken/collection/list
 use cardano/address.{Script}
-use cardano/assets.{AssetName, PolicyId}
+use cardano/assets.{PolicyId}
 use cardano/transaction.{
   InlineDatum, Output, OutputReference, Transaction, find_input,
 }
 use types/automatic_payments.{Settings}
-
-/// The name of the token that authenticates the settings UTXO
-pub const settings_nft_name: AssetName = "settings"
+use types/settings.{settings_nft_name} as settings_types
 
 /// The settings validator lets the settings and treasury admins update global settings for the protocol
 ///

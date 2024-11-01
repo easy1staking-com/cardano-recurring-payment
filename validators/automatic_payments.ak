@@ -9,6 +9,7 @@ use types/automatic_payments.{
   AssetAmount, AutomatedPayment, ExecutePayment, Redeemer, RescueFunds, Settings,
   Withdraw,
 } as automatic_payments_types
+use types/settings.{settings_nft_name} as settings_types
 
 // Sending funds must happen after a certain moment in time has passed, but also,
 // if defined, a maximum delay has not passed.
@@ -70,9 +71,11 @@ pub fn load_settings(
     transaction.reference_inputs
       |> list.find(
           fn(input) {
-            input.output.value
-              |> assets.flatten()
-              |> list.any(fn(asset) { asset.1st == settings_policy_id })
+            assets.quantity_of(
+              input.output.value,
+              settings_policy_id,
+              settings_nft_name,
+            ) == 1
           },
         )
   expect InlineDatum(datum) = configuration_input.output.datum
