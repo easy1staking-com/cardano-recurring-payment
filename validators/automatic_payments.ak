@@ -1,6 +1,6 @@
 use aiken/collection/list
 use aiken/interval.{Finite, Interval, IntervalBound}
-use cardano/address.{Address, Inline, Script, VerificationKey}
+use cardano/address.{Address, Script}
 use cardano/assets.{PolicyId, Value, add}
 use cardano/transaction.{
   InlineDatum, Input, Output, OutputReference, Transaction, ValidityRange,
@@ -101,12 +101,7 @@ pub fn calculate_spent_amount(
       Some(user_index) -> {
         expect Some(user_pk) =
           list.at(settings.operator_fee_exempt_users, user_index)
-        let actual_hash =
-          when datum.owner.payment_credential is {
-            VerificationKey(payment_credential_hash) -> payment_credential_hash
-            Script(script_hash) -> script_hash
-          }
-        expect user_pk == actual_hash
+        expect user_pk == datum.owner_pkh
         assets.zero
       }
       _ -> assets.from_lovelace(settings.operator_fee_lovelace)
@@ -121,7 +116,7 @@ pub fn calculate_spent_amount(
 }
 
 pub fn is_returning_output_correct(
-  locked_input: Output,
+  locked_input: Input,
   returning_output_opt: Option<Output>,
   datum: AutomatedPayment,
   spent_amount: Value,
@@ -135,7 +130,7 @@ pub fn is_returning_output_correct(
     Some(payment_interval_hours) -> {
       // Expected minimum amount (token + ada) that must be returned.
       let expected_returning_amount =
-        assets.merge(locked_input.value, spent_amount)
+        assets.merge(locked_input.output.value, spent_amount)
       // Split value in tokens and lovelaces
       // Returned tokens must match exactly between expected and actual
       let token_expected_returning_amount =
@@ -166,7 +161,7 @@ pub fn is_returning_output_correct(
 
 // check we're paying the right amount to the right adreess
 pub fn is_returning_amount_correct(
-  locked_input: Output,
+  locked_input: Input,
   returning_output: Output,
   datum: AutomatedPayment,
   ada_expected_returning_amount: Int,
@@ -174,25 +169,9 @@ pub fn is_returning_amount_correct(
   payment_interval_hours: Int,
   validity_range: ValidityRange,
 ) -> Bool {
-  // Check right amount is returned to the script, if stake address is specified, the address must be a mingled or franken address.
-  expect Script(script_hash) = locked_input.address.payment_credential
-  let script_address =
-    when datum.owner.stake_credential is {
-      Some(Inline(stake_credential)) ->
-        when stake_credential is {
-          VerificationKey(key_hash) ->
-            address.from_script(script_hash)
-              |> address.with_delegation_key(key_hash)
-          Script(script_hash) ->
-            address.from_script(script_hash)
-              |> address.with_delegation_script(script_hash)
-        }
-
-      _ -> address.from_script(script_hash)
-    }
-
   // Ensure returning_output address matches desired one
-  let is_returning_address_correct = returning_output.address == script_address
+  let is_returning_address_correct =
+    returning_output.address == locked_input.output.address
 
   // Ensure at least a certain amount of ada is returned
   let ada_returning_amount = assets.lovelace_of(returning_output.value)
@@ -262,7 +241,7 @@ pub fn enough_funds_locked(locked_input: Output, spent_amount: Value) -> Bool {
 
 pub fn run_validation(
   datum: AutomatedPayment,
-  locked_input: Output,
+  locked_input: Input,
   payee_output: Output,
   returning_output_opt: Option<Output>,
   validity_range: ValidityRange,
@@ -280,7 +259,8 @@ pub fn run_validation(
       value_to_send,
     )
 
-  let is_enough_funds_locked = enough_funds_locked(locked_input, spent_amount)
+  let is_enough_funds_locked =
+    enough_funds_locked(locked_input.output, spent_amount)
 
   // Check if actual payment is executed
   let is_payment_correct =
@@ -329,13 +309,8 @@ validator automatic_payments(settings_policy_id: PolicyId) {
       // Owner can spend anytime. 
       Withdraw -> {
         expect Some(actual_datum) = datum
-        let crendetials_hash =
-          when actual_datum.owner.payment_credential is {
-            VerificationKey(key_hash) -> key_hash
-            Script(script_hash) -> script_hash
-          }
         let must_be_signed_by_owner =
-          list.has(tx.extra_signatories, crendetials_hash)
+          list.has(tx.extra_signatories, actual_datum.owner_pkh)
         must_be_signed_by_owner
       }
       RescueFunds -> {
@@ -367,7 +342,7 @@ validator automatic_payments(settings_policy_id: PolicyId) {
         // admin wallet change address will always be last.
         // NOTE: tx w/o returning output can only be batched together as we can't mix tx w/ returning
         // and not returning output as it will break validation
-        expect Some(Input { output: in_utxo, output_reference: in_ref }) =
+        expect Some(Input { output: _in_utxo, output_reference: in_ref }) =
           inputs
             |> list.filter(
                 fn(input) {
@@ -401,7 +376,7 @@ validator automatic_payments(settings_policy_id: PolicyId) {
         expect list.has(tx.extra_signatories, operator_pkh)?
         run_validation(
           actual_datum,
-          in_utxo,
+          input,
           out_utxo,
           returning_output_opt,
           tx.validity_range,

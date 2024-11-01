@@ -1,6 +1,5 @@
 use aiken/cbor
 use aiken/interval.{after, between}
-use aiken/primitive/bytearray
 use automatic_payments.{
   compute_new_start_time, compute_value_to_send, enough_funds_locked,
   is_payment_correct, is_payment_time_valid, is_returning_amount_correct,
@@ -36,7 +35,7 @@ test automatic_payments_succeed_withdraw() {
   let datum =
     AutomatedPayment {
       ..datum_template(),
-      owner: address.from_verification_key(payment_pkh),
+      owner_pkh: payment_pkh,
       start_time: 1719835200000,
     }
   let output_reference = OutputReference("", 0)
@@ -55,7 +54,7 @@ test automatic_payments_fail_withdraw() {
   let datum =
     AutomatedPayment {
       ..datum_template(),
-      owner: address.from_verification_key(payment_pkh),
+      owner_pkh: payment_pkh,
       start_time: 1719835200000,
     }
   let output_reference = OutputReference("", 0)
@@ -74,8 +73,7 @@ test is_returning_amount_correct_succeed() {
   let datum =
     AutomatedPayment {
       ..datum_template(),
-      owner: address.from_verification_key(payment_pkh)
-        |> address.with_delegation_key(staking_pkh),
+      owner_pkh: payment_pkh,
       start_time: 1721163789000,
     }
 
@@ -101,7 +99,7 @@ test is_returning_amount_correct_succeed() {
     }
 
   is_returning_amount_correct(
-    locked_input: locked_input,
+    Input(OutputReference(#"", 0), locked_input),
     returning_output: returning_output,
     datum: datum,
     ada_expected_returning_amount: 5_000_000,
@@ -115,8 +113,7 @@ test is_returning_amount_correct_succeed_with_token() {
   let datum =
     AutomatedPayment {
       ..datum_template(),
-      owner: address.from_verification_key(payment_pkh)
-        |> address.with_delegation_key(staking_pkh),
+      owner_pkh: payment_pkh,
       start_time: 1721163789000,
     }
 
@@ -143,7 +140,7 @@ test is_returning_amount_correct_succeed_with_token() {
     }
 
   is_returning_amount_correct(
-    locked_input: locked_input,
+    Input(OutputReference(#"", 0), locked_input),
     returning_output: returning_output,
     datum: datum,
     ada_expected_returning_amount: 5_000_000,
@@ -161,8 +158,7 @@ test is_returning_amount_correct_fail_address() {
   let datum =
     AutomatedPayment {
       ..datum_template(),
-      owner: address.from_verification_key(payment_pkh)
-        |> address.with_delegation_key(staking_pkh),
+      owner_pkh: payment_pkh,
       start_time: 1721163789000,
     }
 
@@ -190,7 +186,7 @@ test is_returning_amount_correct_fail_address() {
     }
 
   !is_returning_amount_correct(
-    locked_input: locked_input,
+    Input(OutputReference(#"", 0), locked_input),
     returning_output: returning_output,
     datum: datum,
     ada_expected_returning_amount: 5_000_000,
@@ -208,8 +204,7 @@ test is_returning_amount_correct_fail_start_time() {
   let datum =
     AutomatedPayment {
       ..datum_template(),
-      owner: address.from_verification_key(payment_pkh)
-        |> address.with_delegation_key(staking_pkh),
+      owner_pkh: payment_pkh,
       start_time: 1721163789000,
     }
 
@@ -236,7 +231,7 @@ test is_returning_amount_correct_fail_start_time() {
     }
 
   !is_returning_amount_correct(
-    locked_input: locked_input,
+    Input(OutputReference(#"", 0), locked_input),
     returning_output: returning_output,
     datum: datum,
     ada_expected_returning_amount: 5_000_000,
@@ -728,7 +723,7 @@ test automatic_payments_succeed_datum_rescue_funds_fail() fail {
   let datum =
     AutomatedPayment {
       ..datum_template(),
-      owner: address.from_verification_key(payment_pkh),
+      owner_pkh: payment_pkh,
       start_time: 1719835200000,
     }
   let input =

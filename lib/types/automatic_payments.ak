@@ -1,4 +1,4 @@
-use aiken/crypto.{Blake2b_224, Hash, VerificationKey}
+use aiken/crypto.{Blake2b_224, Hash, VerificationKey, VerificationKeyHash}
 use cardano/address.{Address}
 use cardano/assets.{AssetName, PolicyId}
 
@@ -11,7 +11,7 @@ pub type AssetAmount {
 pub type AutomatedPayment {
   // The funds owner: payment credentials used to cancel order
   // Optional stake credentials to create and maintain franken address  
-  owner: Address,
+  owner_pkh: VerificationKeyHash,
   /// Value to sent periodically
   amount_to_send: List<AssetAmount>,
   /// Destination address Payment pub key

@@ -3,7 +3,7 @@ use types/automatic_payments.{AutomatedPayment}
 
 pub fn datum_template() {
   AutomatedPayment(
-    address.from_verification_key(#""),
+    #"",
     [],
     address.from_verification_key(#""),
     1719835200000,
