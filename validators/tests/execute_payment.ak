@@ -783,7 +783,7 @@ test automatic_payments_succeed_no_datum_succeed_rescue_funds() {
 
 test serialise_settings_policy_id() {
   trace cbor.serialise(
-    #"d8eba846aaef90ff9a5c23c4648695d10707d9a5a27df121c11e3961",
+    #"f11fe05b25b0f334837c974b747b062a71645bdcb3ded6c7329685e8",
   )
   True
 }
