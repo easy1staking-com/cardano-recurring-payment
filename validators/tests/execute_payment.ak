@@ -1,4 +1,3 @@
-use aiken/cbor
 use aiken/interval.{after, between}
 use automatic_payments.{
   compute_new_start_time, compute_value_to_send, enough_funds_locked,
@@ -779,11 +778,4 @@ test automatic_payments_succeed_no_datum_succeed_rescue_funds() {
     output_reference,
     transaction,
   )
-}
-
-test serialise_settings_policy_id() {
-  trace cbor.serialise(
-    #"f11fe05b25b0f334837c974b747b062a71645bdcb3ded6c7329685e8",
-  )
-  True
 }
