@@ -417,7 +417,7 @@ test is_payment_time_valid_fail_start_time_and_max_delay_overlap() {
   !is_payment_time_valid(datum, between(1719831600000, 1719853200000))
 }
 
-test is_payment_time_valid_fail_earlier_start_time_must_fail() fail {
+test is_payment_time_valid_fail_earlier_start_time_must_fail() {
   let datum =
     AutomatedPayment {
       ..datum_template(),
