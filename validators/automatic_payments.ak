@@ -1,7 +1,7 @@
 use aiken/collection/list
 use aiken/interval.{Finite, Interval, IntervalBound}
 use cardano/address.{Address, Script}
-use cardano/assets.{PolicyId, Value, add}
+use cardano/assets.{PolicyId, Value, ada_asset_name, ada_policy_id, add}
 use cardano/transaction.{
   InlineDatum, Input, Output, OutputReference, Transaction, ValidityRange,
 }
@@ -10,6 +10,7 @@ use types/automatic_payments.{
   Withdraw,
 } as automatic_payments_types
 use types/settings.{settings_nft_name} as settings_types
+use values
 
 // Sending funds must happen after a certain moment in time has passed, but also,
 // if defined, a maximum delay has not passed.
@@ -102,17 +103,13 @@ pub fn calculate_spent_amount(
         expect Some(user_pk) =
           list.at(settings.operator_fee_exempt_users, user_index)
         expect user_pk == datum.owner_pkh
-        assets.zero
+        0
       }
-      _ -> assets.from_lovelace(settings.operator_fee_lovelace)
+      _ -> settings.operator_fee_lovelace
     }
   // Maximum spent amount.
-  let spent_amount =
-    assets.from_lovelace(settings.base_fee_lovelace)
-      |> assets.merge(operator_fee_lovelaces)
-      |> assets.merge(value_to_send)
-      |> assets.negate
-  spent_amount
+  let fee_lovelace = settings.base_fee_lovelace + operator_fee_lovelaces
+  value_to_send |> add(ada_policy_id, ada_asset_name, fee_lovelace)
 }
 
 pub fn is_returning_output_correct(
@@ -129,6 +126,7 @@ pub fn is_returning_output_correct(
   when datum.payment_interval_hours is {
     Some(payment_interval_hours) -> {
       // Expected minimum amount (token + ada) that must be returned.
+      // FIXME
       let expected_returning_amount =
         assets.merge(locked_input.output.value, spent_amount)
       // Split value in tokens and lovelaces
@@ -220,23 +218,18 @@ pub fn compute_value_to_send(amount_to_send: List<AssetAmount>) -> Value {
 pub fn is_payment_correct(
   value_to_send: Value,
   payee_output: Output,
-  datum: AutomatedPayment,
+  payee: Address,
 ) -> Bool {
   and {
     // Ensure payee_output address matches desired one
-    payee_output.address == datum.payee,
+    payee_output.address == payee,
     // Check right amount is sent to payee
     payee_output.value == value_to_send,
   }
 }
 
 pub fn enough_funds_locked(locked_input: Output, spent_amount: Value) -> Bool {
-  assets.negate(spent_amount)
-    |> assets.merge(locked_input.value)
-    |> assets.reduce(
-        True,
-        fn(_policyId, _assetName, amount, result) { amount >= 0 && result },
-      )
+  values.greater_than(locked_input.value, spent_amount)
 }
 
 pub fn run_validation(
@@ -251,6 +244,7 @@ pub fn run_validation(
   // Building amount to send to payee
   let value_to_send = compute_value_to_send(datum.amount_to_send)
 
+  // This is positive
   let spent_amount =
     calculate_spent_amount(
       fee_exempt_user_index,
@@ -264,14 +258,14 @@ pub fn run_validation(
 
   // Check if actual payment is executed
   let is_payment_correct =
-    is_payment_correct(value_to_send, payee_output, datum)
+    is_payment_correct(value_to_send, payee_output, datum.payee)
 
   let is_returning_output_correct =
     is_returning_output_correct(
       locked_input,
       returning_output_opt,
       datum,
-      spent_amount,
+      spent_amount |> assets.negate(),
       validity_range,
     )
 
@@ -309,9 +303,7 @@ validator automatic_payments(settings_policy_id: PolicyId) {
       // Owner can spend anytime. 
       Withdraw -> {
         expect Some(actual_datum) = datum
-        let must_be_signed_by_owner =
-          list.has(tx.extra_signatories, actual_datum.owner_pkh)
-        must_be_signed_by_owner
+        list.has(tx.extra_signatories, actual_datum.owner_pkh)
       }
       RescueFunds -> {
         expect None = datum
@@ -331,7 +323,7 @@ validator automatic_payments(settings_policy_id: PolicyId) {
         expect Some(input) =
           inputs
             |> transaction.find_input(own_ref)
-        expect Script(ownScriptHash) = input.output.address.payment_credential
+        expect Script(own_script_hash) = input.output.address.payment_credential
 
         // Filtering non-scripts inputs out, so to get rid of supporting
         // wallet utxos used to cover for tx and collect protocol fees in case of 
@@ -347,7 +339,7 @@ validator automatic_payments(settings_policy_id: PolicyId) {
             |> list.filter(
                 fn(input) {
                   when input.output.address.payment_credential is {
-                    Script(hash) -> hash == ownScriptHash
+                    Script(hash) -> hash == own_script_hash
                     _ -> False
                   }
                 },
@@ -364,7 +356,7 @@ validator automatic_payments(settings_policy_id: PolicyId) {
         let returning_output_opt = outputs |> list.at(returning_out_index)
 
         // Indicated input must match the spending one.
-        expect (own_ref == in_ref)?
+        expect own_ref == in_ref
 
         // Read configuration from ref input
         let settings = load_settings(tx, settings_policy_id)

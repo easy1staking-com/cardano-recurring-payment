@@ -92,7 +92,7 @@ test is_returning_amount_correct_succeed() {
   let returning_output =
     Output {
       ..locked_input,
-      address: address,
+      address,
       value: assets.from_lovelace(5_000_000),
       datum: InlineDatum(returning_datum),
     }
@@ -132,7 +132,7 @@ test is_returning_amount_correct_succeed_with_token() {
   let returning_output =
     Output {
       ..locked_input,
-      address: address,
+      address,
       value: assets.from_lovelace(5_000_000)
         |> add(#"abba", #"abba", 10_000_000),
       datum: InlineDatum(returning_datum),
@@ -223,7 +223,7 @@ test is_returning_amount_correct_fail_start_time() {
   let returning_output =
     Output {
       ..locked_input,
-      address: address,
+      address,
       value: assets.from_lovelace(5_000_000)
         |> add(#"abba", #"abba", 10_000_000),
       datum: InlineDatum(returning_datum),
@@ -313,7 +313,7 @@ test is_payment_correct_succeed() {
       datum: NoDatum,
       reference_script: None,
     },
-    datum: datum,
+    payee: datum.payee,
   )
 }
 
@@ -333,7 +333,7 @@ test is_payment_correct_fails_amount() {
       datum: NoDatum,
       reference_script: None,
     },
-    datum: datum,
+    payee: datum.payee,
   )
 }
 
@@ -352,7 +352,7 @@ test is_payment_correct_fails_staking_address() {
       datum: NoDatum,
       reference_script: None,
     },
-    datum: datum,
+    payee: datum.payee,
   )
 }
 
@@ -372,7 +372,7 @@ test is_payment_correct_fails_payment_address() {
       datum: NoDatum,
       reference_script: None,
     },
-    datum: datum,
+    payee: datum.payee,
   )
 }
 
@@ -646,6 +646,7 @@ test load_configuration_succeed() {
 }
 
 // Enough funds locked
+// spent_amount is positive (as returned by calculate_spent_amount), negated internally
 test enough_funds_locked_suceed_gt() {
   enough_funds_locked(
     Output(
@@ -681,15 +682,6 @@ test enough_funds_locked_fails_not_enough_ada() {
     assets.from_lovelace(5_000_000),
   )
 }
-
-// pub fn enough_funds_locked(locked_input: Output, spent_amount: Value) -> Bool {
-//   assets.negate(spent_amount)
-//     |> assets.merge(locked_input.value)
-//     |> assets.reduce(
-//         True,
-//         fn(_policyId, _assetName, amount, result) { amount >= 0 && result },
-//       )
-// }
 
 // Testing No Datum Spending Actions
 test automatic_payments_succeed_no_datum_withdraw_fail() fail {
