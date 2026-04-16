@@ -113,10 +113,9 @@ pub fn calculate_spent_amount(
 }
 
 pub fn is_returning_output_correct(
-  locked_input: Input,
+  balance: Value,
   returning_output_opt: Option<Output>,
   datum: AutomatedPayment,
-  spent_amount: Value,
   validity_range: ValidityRange,
 ) -> Bool {
   // Must check that, if expected, there's a payment back into the contract
@@ -127,8 +126,7 @@ pub fn is_returning_output_correct(
     Some(payment_interval_hours) -> {
       // Expected minimum amount (token + ada) that must be returned.
       // FIXME
-      let expected_returning_amount =
-        assets.merge(locked_input.output.value, spent_amount)
+      let expected_returning_amount = balance
       // Split value in tokens and lovelaces
       // Returned tokens must match exactly between expected and actual
       let token_expected_returning_amount =
@@ -228,10 +226,6 @@ pub fn is_payment_correct(
   }
 }
 
-pub fn enough_funds_locked(locked_input: Output, spent_amount: Value) -> Bool {
-  values.greater_than(locked_input.value, spent_amount)
-}
-
 pub fn run_validation(
   datum: AutomatedPayment,
   locked_input: Input,
@@ -253,8 +247,7 @@ pub fn run_validation(
       value_to_send,
     )
 
-  let is_enough_funds_locked =
-    enough_funds_locked(locked_input.output, spent_amount)
+  let balance = values.debit(locked_input.output.value, spent_amount)
 
   // Check if actual payment is executed
   let is_payment_correct =
@@ -277,7 +270,6 @@ pub fn run_validation(
     datum.max_fees_lovelace >= settings.operator_fee_lovelace + settings.base_fee_lovelace
 
   and {
-    is_enough_funds_locked?,
     is_payment_correct?,
     is_returning_output_correct?,
     is_tx_time_valid?,
