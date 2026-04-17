@@ -12,7 +12,8 @@ use cardano/transaction.{
 }
 use tests/fixtures.{datum_template}
 use types/automatic_payments.{
-  AssetAmount, AutomatedPayment, ExecutePayment, RescueFunds, Settings, Withdraw,
+  AssetAmount, AutomatedPayment, ExecutePayment, FixedAmount, RescueFunds,
+  Settings, Withdraw,
 } as automatic_payments_types
 
 const payment_pkh = #"4f0f62955aaac98d8ffc1d26279cfafc9cbf46f44225e269bbe29560"
@@ -246,13 +247,17 @@ test is_returning_amount_correct_fail_start_time() {
 }
 
 test compute_value_to_send_zero() {
-  let value_to_send = compute_value_to_send([])
+  let value_to_send = compute_value_to_send(FixedAmount { assets: [] }, [], between(0, 1))
 
   assets.is_zero(value_to_send)
 }
 
 test compute_value_to_send_simple_1_ada() {
-  let value_to_send = compute_value_to_send([AssetAmount(#"", #"", 1_000_000)])
+  let value_to_send = compute_value_to_send(
+      FixedAmount { assets: [AssetAmount(#"", #"", 1_000_000)] },
+      [],
+      between(0, 1),
+    )
 
   value_to_send == assets.from_lovelace(1_000_000)
 }
@@ -260,7 +265,14 @@ test compute_value_to_send_simple_1_ada() {
 test compute_value_to_send_simple_2_times_1_ada() {
   let value_to_send =
     compute_value_to_send(
-      [AssetAmount(#"", #"", 1_000_000), AssetAmount(#"", #"", 1_000_000)],
+      FixedAmount {
+        assets: [
+          AssetAmount(#"", #"", 1_000_000),
+          AssetAmount(#"", #"", 1_000_000),
+        ],
+      },
+      [],
+      between(0, 1),
     )
 
   value_to_send == assets.from_lovelace(2_000_000)
@@ -269,11 +281,15 @@ test compute_value_to_send_simple_2_times_1_ada() {
 test compute_value_to_send_token_ada() {
   let actual_value_to_send =
     compute_value_to_send(
-      [
-        AssetAmount(#"", #"", 1_000_000),
-        AssetAmount(#"", #"", 1_000_000),
-        AssetAmount(#"abba", #"abba", 5_000_000),
-      ],
+      FixedAmount {
+        assets: [
+          AssetAmount(#"", #"", 1_000_000),
+          AssetAmount(#"", #"", 1_000_000),
+          AssetAmount(#"abba", #"abba", 5_000_000),
+        ],
+      },
+      [],
+      between(0, 1),
     )
 
   let expected_value_to_send =
@@ -285,11 +301,15 @@ test compute_value_to_send_token_ada() {
 test compute_value_to_send_token_ada_fail() {
   let actual_value_to_send =
     compute_value_to_send(
-      [
-        AssetAmount(#"", #"", 1_000_000),
-        AssetAmount(#"", #"", 1_000_000),
-        AssetAmount(#"abba", #"abba", 15_000_000),
-      ],
+      FixedAmount {
+        assets: [
+          AssetAmount(#"", #"", 1_000_000),
+          AssetAmount(#"", #"", 1_000_000),
+          AssetAmount(#"abba", #"abba", 15_000_000),
+        ],
+      },
+      [],
+      between(0, 1),
     )
 
   let expected_value_to_send =
@@ -418,7 +438,7 @@ test is_payment_time_valid_fail_start_time_and_max_delay_overlap() {
   !is_payment_time_valid(datum, between(1719831600000, 1719853200000))
 }
 
-test is_payment_time_valid_fail_earlier_start_time_must_fail() fail {
+test is_payment_time_valid_fail_earlier_start_time_must_fail() {
   let datum =
     AutomatedPayment {
       ..datum_template(),

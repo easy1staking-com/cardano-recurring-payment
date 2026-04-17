@@ -3,12 +3,23 @@
 
 [[requirements]]
 name = "aiken-lang/stdlib"
-version = "v2.1.0"
+version = "v3.0.0"
+source = "github"
+
+[[requirements]]
+name = "easy1staking-com/aiken-calendar"
+version = "v0.1.0"
 source = "github"
 
 [[packages]]
 name = "aiken-lang/stdlib"
-version = "v2.1.0"
+version = "v3.0.0"
+requirements = []
+source = "github"
+
+[[packages]]
+name = "easy1staking-com/aiken-calendar"
+version = "v0.1.0"
 requirements = []
 source = "github"
 

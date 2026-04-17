@@ -8,12 +8,39 @@ pub type AssetAmount {
   amount: Int,
 }
 
+/// Charli3 oracle feed configuration for oracle-priced payments.
+pub type OracleConfig {
+  /// PolicyId of the Charli3 oracle NFT (varies per price pair).
+  oracle_nft_policy_id: PolicyId,
+  /// Target amount in the pricing currency, scaled by 1e6.
+  /// e.g., 100_000_000 = $100
+  target_amount: Int,
+  /// PolicyId of the asset to actually send ("" for ADA).
+  payment_policy_id: PolicyId,
+  /// AssetName of the asset to actually send ("" for ADA).
+  payment_asset_name: AssetName,
+  /// Optional max acceptable age of the oracle price in milliseconds.
+  max_price_age_ms: Option<Int>,
+  /// Optional price floor (scaled by 1e6). Rejects if price below.
+  min_price: Option<Int>,
+  /// Optional price ceiling (scaled by 1e6). Rejects if price above.
+  max_price: Option<Int>,
+}
+
+/// How the payment amount is determined.
+pub type PaymentAmount {
+  /// Fixed: send exactly these assets (existing behavior).
+  FixedAmount { assets: List<AssetAmount> }
+  /// Oracle-priced: compute amount from Charli3 oracle at execution time.
+  OraclePricedAmount { oracle_config: OracleConfig }
+}
+
 pub type AutomatedPayment {
   // The funds owner: payment credentials used to cancel order
-  // Optional stake credentials to create and maintain franken address  
+  // Optional stake credentials to create and maintain franken address
   owner_pkh: VerificationKeyHash,
-  /// Value to sent periodically
-  amount_to_send: List<AssetAmount>,
+  /// How much to send: fixed assets or oracle-computed amount
+  amount_to_send: PaymentAmount,
   /// Destination address Payment pub key
   payee: Address,
   /// Starting Date Time. Namely time of the first payment should be made

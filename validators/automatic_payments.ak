@@ -5,9 +5,10 @@ use cardano/assets.{PolicyId, Value, add}
 use cardano/transaction.{
   InlineDatum, Input, Output, OutputReference, Transaction, ValidityRange,
 }
+use oracle
 use types/automatic_payments.{
-  AssetAmount, AutomatedPayment, ExecutePayment, Redeemer, RescueFunds, Settings,
-  Withdraw,
+  AssetAmount, AutomatedPayment, ExecutePayment, FixedAmount, OraclePricedAmount,
+  PaymentAmount, Redeemer, RescueFunds, Settings, Withdraw,
 } as automatic_payments_types
 use types/settings.{settings_nft_name} as settings_types
 
@@ -208,12 +209,53 @@ pub fn is_returning_amount_correct(
   }
 }
 
-pub fn compute_value_to_send(amount_to_send: List<AssetAmount>) -> Value {
-  list.foldl(
-    amount_to_send,
-    assets.zero,
-    fn(n, acc) { acc |> add(n.policy_id, n.asset_name, n.amount) },
-  )
+pub fn compute_value_to_send(
+  amount_to_send: PaymentAmount,
+  reference_inputs: List<Input>,
+  validity_range: ValidityRange,
+) -> Value {
+  when amount_to_send is {
+    FixedAmount { assets: asset_list } ->
+      list.foldl(
+        asset_list,
+        assets.zero,
+        fn(n, acc) { acc |> add(n.policy_id, n.asset_name, n.amount) },
+      )
+    OraclePricedAmount { oracle_config } -> {
+      let oracle_price =
+        oracle.load_oracle_price(
+          reference_inputs,
+          oracle_config.oracle_nft_policy_id,
+        )
+
+      expect
+        oracle.validate_oracle_freshness(
+          oracle_price,
+          validity_range,
+          oracle_config.max_price_age_ms,
+        )
+
+      expect
+        oracle.validate_price_bounds(
+          oracle_price.price,
+          oracle_config.min_price,
+          oracle_config.max_price,
+        )
+
+      let payment_amount =
+        oracle.compute_oracle_payment_amount(
+          oracle_config.target_amount,
+          oracle_price.price,
+        )
+
+      assets.zero
+        |> add(
+            oracle_config.payment_policy_id,
+            oracle_config.payment_asset_name,
+            payment_amount,
+          )
+    }
+  }
 }
 
 // Check the desired amount is sent to the right address
@@ -247,9 +289,11 @@ pub fn run_validation(
   validity_range: ValidityRange,
   settings: Settings,
   fee_exempt_user_index: Option<Int>,
+  reference_inputs: List<Input>,
 ) -> Bool {
   // Building amount to send to payee
-  let value_to_send = compute_value_to_send(datum.amount_to_send)
+  let value_to_send =
+    compute_value_to_send(datum.amount_to_send, reference_inputs, validity_range)
 
   let spent_amount =
     calculate_spent_amount(
@@ -382,6 +426,7 @@ validator automatic_payments(settings_policy_id: PolicyId) {
           tx.validity_range,
           settings,
           fee_exempt_user_index,
+          tx.reference_inputs,
         )
       }
     }
