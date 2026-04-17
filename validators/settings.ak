@@ -4,8 +4,7 @@ use cardano/assets.{PolicyId}
 use cardano/transaction.{
   InlineDatum, Output, OutputReference, Transaction, find_input,
 }
-use types/automatic_payments.{Settings}
-use types/settings.{settings_nft_name} as settings_types
+use types/settings.{Settings, settings_nft_name} as settings_types
 
 /// The settings validator lets the settings and treasury admins update global settings for the protocol
 ///

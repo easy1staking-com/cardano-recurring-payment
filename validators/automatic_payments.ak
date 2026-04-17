@@ -8,9 +8,9 @@ use cardano/transaction.{
 use oracle
 use types/automatic_payments.{
   AssetAmount, AutomatedPayment, ExecutePayment, FixedAmount, OraclePricedAmount,
-  PaymentAmount, Redeemer, RescueFunds, Settings, Withdraw,
+  PaymentAmount, Redeemer, RescueFunds, Withdraw,
 } as automatic_payments_types
-use types/settings.{settings_nft_name} as settings_types
+use types/settings.{Settings, settings_nft_name}
 
 // Sending funds must happen after a certain moment in time has passed, but also,
 // if defined, a maximum delay has not passed.
@@ -293,7 +293,11 @@ pub fn run_validation(
 ) -> Bool {
   // Building amount to send to payee
   let value_to_send =
-    compute_value_to_send(datum.amount_to_send, reference_inputs, validity_range)
+    compute_value_to_send(
+      datum.amount_to_send,
+      reference_inputs,
+      validity_range,
+    )
 
   let spent_amount =
     calculate_spent_amount(

@@ -1,4 +1,4 @@
-use aiken/crypto.{Blake2b_224, Hash, VerificationKey, VerificationKeyHash}
+use aiken/crypto.{VerificationKeyHash}
 use cardano/address.{Address}
 use cardano/assets.{AssetName, PolicyId}
 
@@ -64,13 +64,4 @@ pub type Redeemer {
     operator_index: Int,
     fee_exempt_user_index: Option<Int>,
   }
-}
-
-pub type Settings {
-  // BOT Payment PKH
-  setting_admin_pkh: Hash<Blake2b_224, VerificationKey>,
-  authorised_operators: List<Hash<Blake2b_224, VerificationKey>>,
-  operator_fee_exempt_users: List<Hash<Blake2b_224, VerificationKey>>,
-  operator_fee_lovelace: Int,
-  base_fee_lovelace: Int,
 }
