@@ -6,8 +6,8 @@ test serialise_bootstrap_utxo() {
   trace bytearray.to_hex(
     cbor.serialise(
       OutputReference(
-        #"8cac3945ed9866f45b2c7c2759c95d65b2d768e1c6596790156efbbdaa69e893",
-        1,
+        #"8c198e942f1f7a60e704aa1651333b45bccd51653259204e4dac38b559844dd8",
+        0,
       ),
     ),
   )

@@ -40,15 +40,15 @@ mv plutus.json preprod-plutus.json
 # aiken build -t verbose &> /dev/null
 aiken build &> /dev/null
 
-# MAINNET_PROTOCOL_BOOT_UTXO="d8799fd8799f58204f79db6c5e935d243340c44ab53f51dc3e6dd1c1a859f22f862482397b6a9281ff00ff"
-MAINNET_SETTINGS_POLICY_ID="581c845a9b6c2341f6214cd00ac42e528440fd0c3707756ad1e1642f6809"
+MAINNET_PROTOCOL_BOOT_UTXO="D8799F58208C198E942F1F7A60E704AA1651333B45BCCD51653259204E4DAC38B559844DD800FF"
+MAINNET_SETTINGS_POLICY_ID="581C66D403ABC1D6F1206B74C64204766E46601B88747575F6A0A02142A0"
 
 ## Settings
-# aiken blueprint apply -v settings.spend $PREPROD_PROTOCOL_BOOT_UTXO 2> -o plutus-tmp.json
-# mv tmp preprod-spend-settings-plutus.json
+aiken blueprint apply -v settings.settings.spend $MAINNET_PROTOCOL_BOOT_UTXO -o plutus-tmp.json
+mv plutus-tmp.json plutus.json
 
-# aiken blueprint apply -v settings.mint $PREPROD_PROTOCOL_BOOT_UTXO 2> -o plutus-tmp.json
-# mv tmp preprod-mint-settings-plutus.json
+aiken blueprint apply -v settings.settings.mint $MAINNET_PROTOCOL_BOOT_UTXO -o plutus-tmp.json
+mv plutus-tmp.json plutus.json
 
 ## Recurring payment
 aiken blueprint apply -v automatic_payments.automatic_payments.spend $MAINNET_SETTINGS_POLICY_ID -o plutus-tmp.json
